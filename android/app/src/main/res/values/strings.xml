@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">app_do_an</string>
+    <string name="facebook_app_id">1684178372264015</string> <!-- 👈 App ID của bạn -->
+    <string name="fb_login_protocol_scheme">fb1684178372264015</string>
+</resources>
