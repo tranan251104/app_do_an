@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:app_do_an/navigator/VNPAY/vnpay_webview.dart';
-import 'package:app_do_an/navigator/VNPAY/vnpay_helper.dart';
+import 'package:app_do_an/navigator/payOS/payos_webview.dart';
+import 'package:app_do_an/navigator/payOS/payos_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_do_an/navigator/model/transaction.dart' as AppModel;
 import 'package:app_do_an/navigator/service/transaction_storage.dart';
@@ -21,7 +21,8 @@ class _RechargeScreenState extends State<RechargeScreen> {
   int _walletBalance = 0;
   bool _isLoading = false;
 
-  final String _vnpayReturnUrl = "https://sandbox.vnpayment.vn/apis/vnpay-demo/";
+  // Dùng URL mặc định của PayOS để đảm bảo Signature luôn khớp
+  final String _returnUrl = "https://payos.vn/success"; 
 
   String? _paymentMethod;
 
@@ -32,7 +33,7 @@ class _RechargeScreenState extends State<RechargeScreen> {
     "VPBank",
     "BIDV",
     "Agribank",
-    "VNPay"
+    "Thanh toán VietQR (PayOS)"
   ];
 
   @override
@@ -47,7 +48,6 @@ class _RechargeScreenState extends State<RechargeScreen> {
     super.dispose();
   }
 
-  /// 🔹 Load số dư hiện tại từ SharedPreferences
   Future<void> _loadBalance() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
@@ -56,28 +56,25 @@ class _RechargeScreenState extends State<RechargeScreen> {
     });
   }
 
-  /// 🔹 Lưu số dư mới vào SharedPreferences
   Future<void> _saveBalance(int newBalance) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt("wallet_balance", newBalance);
   }
 
-  /// 🔹 Update Firestore balance + lịch sử
   Future<void> _updateFirestoreBalance(int amount) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     final docRef = fs.FirebaseFirestore.instance.collection('users').doc(user.uid);
 
-    await fs.FirebaseFirestore.instance.runTransaction((fs.Transaction tx) async {
+    await fs.FirebaseFirestore.instance.runTransaction((tx) async {
       final snapshot = await tx.get(docRef);
       final currentBalance = (snapshot.data()?['balance'] ?? 0) as int;
       tx.update(docRef, {'balance': currentBalance + amount});
     });
 
-    // Ghi lịch sử giao dịch
     await docRef.collection('transactions').add({
-      'title': 'Nạp tiền từ ${_paymentMethod ?? "Ngân hàng"}',
+      'title': 'Nạp tiền qua PayOS',
       'amount': amount,
       'createdAt': fs.FieldValue.serverTimestamp(),
     });
@@ -101,7 +98,7 @@ class _RechargeScreenState extends State<RechargeScreen> {
           itemCount: _banks.length,
           itemBuilder: (context, index) {
             return ListTile(
-              leading: const Icon(Icons.account_balance, color: Colors.purple),
+              leading: const Icon(Icons.account_balance, color: Colors.green),
               title: Text(_banks[index]),
               onTap: () {
                 setState(() {
@@ -119,71 +116,53 @@ class _RechargeScreenState extends State<RechargeScreen> {
   Future<void> _handleRecharge() async {
     if (_amount < 10000 || _paymentMethod == null || _isLoading) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      final url = generateVNPayUrl(
-        tmnCode: "7OBZ201B",
-        hashSecret: "3OZBQGBZXPH9FW6WQ5U598URUGVT2G9O",
+      // Khi gọi PayOS, dùng description đơn giản (chỉ chữ cái) để tránh lỗi Signature
+      final String? paymentUrl = await PayOSService.createPaymentLink(
         amount: _amount,
-        returnUrl: _vnpayReturnUrl, // Dùng biến duy nhất
-        isProduction: false,
+        description: "NAPTIEN", 
+        returnUrl: _returnUrl,
       );
 
-      print("🔥 VNPay URL: $url");
-
-      final result = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => VNPayWebView(
-            paymentUrl: url,
-            returnUrl: _vnpayReturnUrl, // Truyền returnUrl sang Webview
-          ),
-        ),
-      );
-
-      if (result is int && result > 0) {
-        await _updateFirestoreBalance(result);
-        final newBalance = _walletBalance + result;
-        await _saveBalance(newBalance);
-
-        final now = DateFormat("HH:mm dd/MM").format(DateTime.now());
-        await TransactionStorage.addTransaction(
-          AppModel.Transaction(
-            title: "Nạp tiền từ ${_paymentMethod ?? "Ngân hàng"}",
-            amount: result,
-            time: now,
+      if (paymentUrl != null) {
+        if (!mounted) return;
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PayOSWebView(
+              paymentUrl: paymentUrl,
+              returnUrl: _returnUrl,
+              amount: _amount,
+            ),
           ),
         );
 
-        if (!mounted) return;
-        setState(() {
-          _walletBalance = newBalance;
-        });
+        if (result is int && result > 0) {
+          await _updateFirestoreBalance(result);
+          final newBalance = _walletBalance + result;
+          await _saveBalance(newBalance);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Nạp $result đ thành công")),
-        );
+          final now = DateFormat("HH:mm dd/MM").format(DateTime.now());
+          await TransactionStorage.addTransaction(
+            AppModel.Transaction(
+              title: "Nạp tiền qua PayOS",
+              amount: result,
+              time: now,
+            ),
+          );
 
-        Navigator.pop(context, true);
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Thanh toán thất bại hoặc bị huỷ")),
-        );
+          if (!mounted) return;
+          setState(() => _walletBalance = newBalance);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Nạp $result đ thành công")));
+        }
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Có lỗi xảy ra: $e")),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi: $e")));
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -192,37 +171,28 @@ class _RechargeScreenState extends State<RechargeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Nạp tiền"),
-        backgroundColor: Colors.purple,
+        backgroundColor: Colors.green,
         foregroundColor: Colors.white,
-        elevation: 1,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Nhập số tiền (đ)"),
+            const Text("Nhập số tiền (tối thiểu 10.000đ)"),
             const SizedBox(height: 8),
             TextField(
               controller: _controller,
               keyboardType: TextInputType.number,
-              onChanged: (val) {
-                setState(() {
-                  _amount = int.tryParse(val) ?? 0;
-                });
-              },
+              onChanged: (val) => setState(() => _amount = int.tryParse(val) ?? 0),
               decoration: InputDecoration(
                 prefixText: "đ ",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
             const SizedBox(height: 8),
-            Text("Số dư Ví hiện tại: đ$_walletBalance"),
-
+            Text("Số dư hiện tại: đ$_walletBalance", style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -231,51 +201,25 @@ class _RechargeScreenState extends State<RechargeScreen> {
                 _quickButton(500000),
               ],
             ),
-
             const SizedBox(height: 24),
-
-            _paymentMethod == null
-                ? ListTile(
-                    leading: const Icon(Icons.add, color: Colors.purple),
-                    title: const Text("Thêm phương thức thanh toán",
-                        style: TextStyle(color: Colors.grey)),
-                    onTap: _choosePaymentMethod,
-                  )
-                : ListTile(
-                    leading: const Icon(Icons.account_balance, color: Colors.purple),
-                    title: const Text("Phương thức thanh toán"),
-                    subtitle: Text(_paymentMethod!),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: _choosePaymentMethod,
-                  ),
-
+            ListTile(
+              leading: const Icon(Icons.account_balance, color: Colors.green),
+              title: Text(_paymentMethod ?? "Chọn phương thức thanh toán"),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: _choosePaymentMethod,
+              tileColor: Colors.grey.shade100,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             const Spacer(),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: (_amount >= 10000 && _paymentMethod != null && !_isLoading)
-                    ? _handleRecharge
-                    : null,
+                onPressed: (_amount >= 10000 && _paymentMethod != null && !_isLoading) ? _handleRecharge : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple,
+                  backgroundColor: Colors.green,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
                 ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        "Nạp tiền ngay",
-                        style: TextStyle(fontSize: 16, color: Colors.white),
-                      ),
+                child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("Nạp tiền ngay", style: TextStyle(color: Colors.white)),
               ),
             ),
           ],
@@ -288,20 +232,10 @@ class _RechargeScreenState extends State<RechargeScreen> {
     return OutlinedButton(
       onPressed: () => _setQuickAmount(value),
       style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        side: BorderSide(
-          color: _amount == value ? Colors.purple : Colors.grey,
-        ),
-        backgroundColor:
-            _amount == value ? Colors.red.shade50 : Colors.transparent,
+        side: BorderSide(color: _amount == value ? Colors.green : Colors.grey),
+        backgroundColor: _amount == value ? Colors.green.shade50 : null,
       ),
-      child: Text(
-        "${value ~/ 1000}.000",
-        style: TextStyle(
-          color: _amount == value ? Colors.purple : Colors.black,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
+      child: Text("${value ~/ 1000}.000"),
     );
   }
 }

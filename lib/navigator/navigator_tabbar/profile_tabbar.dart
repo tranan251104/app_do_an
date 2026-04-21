@@ -1,4 +1,4 @@
-import 'package:app_do_an/navigator/navigator_screen/forgot_password_email_screen.dart';
+import 'package:app_do_an/navigator/navigator_screen/forgot_password_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/personal_info_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/welcome_screen.dart';
 import 'package:app_do_an/navigator/service/otp.dart';

@@ -1,15 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Quyền cần thiết -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.CAMERA"/>
+
+    <!-- Giải quyết lỗi: Permission exists without corresponding hardware -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:label="app_do_an"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
 
-        <!-- MainActivity Flutter -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -28,14 +30,12 @@
             </intent-filter>
         </activity>
 
-        <!-- Flutter embedding -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
 
     </application>
 
-    <!-- Cho phép Flutter engine query -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>

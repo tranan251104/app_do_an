@@ -5,14 +5,16 @@ import 'package:app_do_an/navigator/service/otp.dart';
 import 'package:app_do_an/navigator/model/bankAccount1.dart';
 import 'package:app_do_an/navigator/model/bankAccount2.dart';
 import 'package:app_do_an/navigator/fourth_screen/result_screen.dart';
-import 'package:app_do_an/navigator/model/transaction.dart';
+import 'package:app_do_an/navigator/model/transaction.dart' as model;
 import 'package:app_do_an/navigator/service/transaction_storage.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class OtpConfirmScreen extends StatefulWidget {
   final String email;
-  final BankAccount1? account1; // ✅ chuyển tiền
-  final BankAccount2? account2; // ✅ dịch vụ
+  final BankAccount1? account1; 
+  final BankAccount2? account2; 
   final int amount;
 
   const OtpConfirmScreen({
@@ -33,78 +35,90 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
   bool _loading = false;
 
   Future<void> _verifyOtp() async {
+    if (_enteredOtp.length < 6) return;
+    
     setState(() => _loading = true);
 
-    final ok = await OtpService.verifyOtp(widget.email, _enteredOtp);
+    try {
+      final ok = await OtpService.verifyOtp(widget.email, _enteredOtp);
 
-    setState(() => _loading = false);
+      if (!ok) {
+        if (mounted) {
+          setState(() => _loading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("❌ Sai OTP, vui lòng thử lại")),
+          );
+        }
+        return;
+      }
 
-    if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Sai OTP, vui lòng thử lại")),
-      );
-      return;
-    }
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception("Người dùng chưa đăng nhập");
 
-    // 🔹 Trừ tiền trong ví
-    final prefs = await SharedPreferences.getInstance();
-    int balance = prefs.getInt("wallet_balance") ?? 0;
-    final newBalance = balance - widget.amount;
-    await prefs.setInt("wallet_balance", newBalance);
+      final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      
+      // 🔹 1. Trừ tiền trong Firestore (Sửa field 'balance' cho khớp với HomeTabbar)
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        DocumentSnapshot snapshot = await transaction.get(userDoc);
+        if (!snapshot.exists) throw Exception("Không tìm thấy user trên Firestore");
 
-    // 🔹 Lưu lịch sử giao dịch
-    final now = DateFormat("HH:mm dd/MM").format(DateTime.now());
+        // Đọc trường 'balance' thay vì 'wallet_balance'
+        int currentBalance = (snapshot.data() as Map<String, dynamic>)['balance'] ?? 0;
+        
+        if (currentBalance < widget.amount) throw Exception("Số dư không đủ");
 
-    if (widget.account1 != null) {
-      // 👉 Trường hợp chuyển tiền (BankAccount1)
-      final acc = widget.account1!;
-      final title = "Chuyển tiền cho ${acc.ownerName}";
+        transaction.update(userDoc, {'balance': currentBalance - widget.amount});
+      });
 
+      // 🔹 2. Cập nhật SharedPreferences (Local cache)
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt("wallet_balance", (prefs.getInt("wallet_balance") ?? 0) - widget.amount);
+
+      // 🔹 3. Chuẩn bị dữ liệu lịch sử
+      final nowFormatted = DateFormat("HH:mm dd/MM/yyyy").format(DateTime.now());
+      String title = widget.account1 != null 
+          ? "Chuyển tiền cho ${widget.account1!.ownerName}"
+          : "Thanh toán ${widget.account2!.serviceName}";
+
+      // 🔹 4. Lưu lịch sử vào Firestore (Để ScheduleTabbar tự động cập nhật qua Stream)
+      await userDoc.collection('transactions').add({
+        'title': title,
+        'amount': -widget.amount,
+        'createdAt': FieldValue.serverTimestamp(),
+        'displayTime': nowFormatted,
+      });
+
+      // 🔹 5. Lưu lịch sử vào Local
       await TransactionStorage.addTransaction(
-        Transaction(
+        model.Transaction(
           title: title,
           amount: -widget.amount,
-          time: now,
+          time: nowFormatted,
         ),
       );
+
+      if (!mounted) return;
+      setState(() => _loading = false);
 
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => TransactionResultScreen(
-            bankName: acc.bankName,
-            accountName: acc.ownerName,
+            bankName: widget.account1?.bankName ?? "",
+            accountName: widget.account1?.ownerName ?? "${widget.account2!.serviceName}",
             amount: widget.amount,
-            time: now,
-            isServiceTransaction: false,
+            time: nowFormatted,
+            isServiceTransaction: widget.account2 != null,
           ),
         ),
       );
-    } else if (widget.account2 != null) {
-      // 👉 Trường hợp dịch vụ (BankAccount2)
-      final service = widget.account2!;
-      final title = "${service.serviceName} - ${service.provider}";
-
-      await TransactionStorage.addTransaction(
-        Transaction(
-          title: "Thanh toán dịch vụ $title",
-          amount: -widget.amount,
-          time: now,
-        ),
-      );
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TransactionResultScreen(
-            bankName: "", // dịch vụ nên để trống
-            accountName: "${service.serviceName} - ${service.provider}",
-            amount: widget.amount,
-            time: now,
-            isServiceTransaction: true,
-          ),
-        ),
-      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("❌ Lỗi: ${e.toString()}")),
+        );
+      }
     }
   }
 
@@ -115,49 +129,41 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
         title: const Text("Xác nhận OTP"),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
+        elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            Text(
-              "Mã OTP đã gửi đến ${widget.email}",
-              style: const TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-
-            // 🔹 Ô nhập OTP
+            const Icon(Icons.mark_email_read_outlined, size: 80, color: Colors.deepPurpleAccent),
+            const SizedBox(height: 16),
+            const Text("Mã OTP đã được gửi đến email", style: TextStyle(color: Colors.grey)),
+            Text(widget.email, style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 32),
             PinCodeTextField(
               appContext: context,
               length: 6,
-              autoFocus: true,
               keyboardType: TextInputType.number,
-              onChanged: (value) {
-                setState(() => _enteredOtp = value);
-              },
+              onChanged: (v) => _enteredOtp = v,
               pinTheme: PinTheme(
                 shape: PinCodeFieldShape.box,
                 borderRadius: BorderRadius.circular(8),
                 fieldHeight: 50,
-                fieldWidth: 40,
-                activeFillColor: Colors.white,
+                fieldWidth: 45,
+                activeColor: Colors.deepPurpleAccent,
               ),
             ),
-
-            const SizedBox(height: 24),
-
-            // 🔹 Nút xác nhận
+            const SizedBox(height: 32),
             ElevatedButton(
-              onPressed:
-                  _enteredOtp.length == 6 && !_loading ? _verifyOtp : null,
+              onPressed: !_loading ? _verifyOtp : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurpleAccent,
-                minimumSize: const Size(double.infinity, 48),
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: _loading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("XÁC NHẬN"),
+              child: _loading 
+                ? const CircularProgressIndicator(color: Colors.white) 
+                : const Text("XÁC NHẬN THANH TOÁN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),

@@ -36,90 +36,100 @@ class _PhoneTopupScreenState extends State<PhoneTopupScreen> {
       appBar: AppBar(
         title: const Text("Nạp tiền điện thoại"),
         backgroundColor: Colors.purple,
+        foregroundColor: Colors.white,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            /// 🔹 Nhập số điện thoại
-            const Text("Số điện thoại",
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                hintText: "Nhập số điện thoại",
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 20),
-
-            /// 🔹 Chọn mệnh giá
-            const Text("Chọn mệnh giá",
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: amounts.map((amount) {
-                final isSelected = _selectedAmount == amount;
-                return ChoiceChip(
-                  label: Text("${amount ~/ 1000}K"),
-                  selected: isSelected,
-                  onSelected: (_) {
-                    setState(() {
-                      _selectedAmount = amount;
-                      _amountController.text = amount.toString();
-                    });
-                  },
-                  selectedColor: Colors.purple,
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : Colors.black,
+      // 🔹 Sử dụng resizeToAvoidBottomInset để tránh bị đẩy layout quá mức
+      resizeToAvoidBottomInset: true, 
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView( // 🔹 Bọc trong ScrollView để cuộn được khi có bàn phím
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  /// 🔹 Nhập số điện thoại
+                  const Text("Số điện thoại",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      hintText: "Nhập số điện thoại",
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setState(() {}),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-            /// 🔹 Nhập số tiền khác
-            const Text("Hoặc nhập số tiền khác",
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                hintText: "Nhập số tiền (VNĐ)",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                errorText: (_amountController.text.isNotEmpty &&
-                        int.tryParse(_amountController.text) != null &&
-                        int.parse(_amountController.text) >
-                            widget.walletBalance)
-                    ? "❌ Số dư ví không đủ"
-                    : null,
+                  /// 🔹 Chọn mệnh giá
+                  const Text("Chọn mệnh giá",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: amounts.map((amount) {
+                      final isSelected = _selectedAmount == amount;
+                      return ChoiceChip(
+                        label: Text("${amount ~/ 1000}K"),
+                        selected: isSelected,
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedAmount = amount;
+                            _amountController.text = amount.toString();
+                          });
+                        },
+                        selectedColor: Colors.purple,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : Colors.black,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+
+                  /// 🔹 Nhập số tiền khác
+                  const Text("Hoặc nhập số tiền khác",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _amountController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: "Nhập số tiền (VNĐ)",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      errorText: (_amountController.text.isNotEmpty &&
+                              int.tryParse(_amountController.text.replaceAll(RegExp(r'[^0-9]'), '')) != null &&
+                              int.parse(_amountController.text.replaceAll(RegExp(r'[^0-9]'), '')) >
+                                  widget.walletBalance)
+                          ? "❌ Số dư ví không đủ"
+                          : null,
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedAmount = null;
+                      });
+                    },
+                  ),
+
+                  const SizedBox(height: 12),
+                  Text(
+                    "Số dư ví hiện tại: ₫${NumberFormat.decimalPattern().format(widget.walletBalance)}",
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ],
               ),
-              onChanged: (value) {
-                setState(() {
-                  _selectedAmount = null;
-                });
-              },
             ),
+          ),
 
-            const SizedBox(height: 12),
-            Text(
-              "Số dư ví hiện tại: ₫${NumberFormat.decimalPattern().format(widget.walletBalance)}",
-              style: const TextStyle(color: Colors.grey),
-            ),
-
-            const Spacer(),
-
-            // 🔹 Nút tiếp tục
-            SizedBox(
+          // 🔹 Nút tiếp tục đặt cố định ở dưới
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: isFormValid
@@ -151,15 +161,12 @@ class _PhoneTopupScreenState extends State<PhoneTopupScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text("Tiếp tục", style: TextStyle(fontSize: 16)),
+                child: const Text("Tiếp tục", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
               ),
-            )
-          ],
-        ),
+            ),
+          )
+        ],
       ),
     );
   }
 }
-
-
-

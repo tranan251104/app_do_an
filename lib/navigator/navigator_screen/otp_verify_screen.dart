@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'change_password_screen.dart';
 import 'reset_password_screen.dart';
-import 'forgot_password_email_screen.dart';
+import 'forgot_password_screen.dart';
 import 'package:app_do_an/navigator/service/otp.dart';
 
 

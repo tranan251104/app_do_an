@@ -65,8 +65,10 @@ class _OtpPhoneConfirmScreenState extends State<OtpPhoneConfirmScreen> {
 
       setState(() => _loading = false);
 
-      widget.onVerified(); // gọi callback để xử lý tiếp (trừ tiền, đổi mật khẩu...)
-      Navigator.pop(context); // quay lại màn hình trước
+      // Gọi callback để thực hiện trừ tiền và lưu lịch sử
+      // Không gọi Navigator.pop ở đây để transfer_money_form_screen tự chuyển sang ResultScreen
+      await widget.onVerified(); 
+
     } catch (e) {
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
