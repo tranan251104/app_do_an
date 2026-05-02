@@ -7,18 +7,16 @@ import 'package:app_do_an/navigator/navigator_screen/main_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/tabbar_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/home_screen.dart';
 import 'package:app_do_an/navigator/secondary_screen/transfermoney_screen.dart';
-import 'package:app_do_an/navigator/navigator_screen/profile_phone_screen.dart';
 
 GoRouter buildRouter(bool isRegistered) {
   return GoRouter(
     initialLocation: isRegistered ? '/welcome' : '/createprofile',
     routes: [
       GoRoute(path: '/', builder: (context, state) => HomeScreen()),
-      GoRoute(path: '/createprofile', builder: (context, state) => CreateAccountScreen()),
-      GoRoute(path: '/profile', builder: (context, state) => ProfileEmailScreen()),
-      GoRoute(path: '/profile_phone', builder: (context, state) => ProfilePhoneScreen()),
+      GoRoute(path: '/createprofile', builder: (context, state) => const CreateAccountScreen()),
+      GoRoute(path: '/profile', builder: (context, state) => ProfileScreen()), // 🔹 Chỉ cần 1 đường dẫn duy nhất
       GoRoute(path: '/goal', builder: (context, state) => GoalScreen()),
-      GoRoute(path: '/welcome', builder: (context, state) => WelcomeScreen(fromLogin: true)),
+      GoRoute(path: '/welcome', builder: (context, state) => const WelcomeScreen(fromLogin: true)),
       GoRoute(
         path: '/main',
         builder: (context, state) {
@@ -26,7 +24,7 @@ GoRouter buildRouter(bool isRegistered) {
           return MainScreen(fromLogin: fromLogin);
         },
       ),
-      GoRoute(path: '/tabbar', builder: (context, state) => TabbarScreen()),
+      GoRoute(path: '/tabbar', builder: (context, state) => const TabbarScreen()),
       GoRoute(
         path: '/transfer',
         builder: (context, state) => const TransferMoneyScreen(),
@@ -34,6 +32,3 @@ GoRouter buildRouter(bool isRegistered) {
     ],
   );
 }
-
-
-

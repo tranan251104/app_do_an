@@ -40,94 +40,93 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
     setState(() => _loading = true);
 
     try {
+      // 1. Xác thực OTP (Vẫn giữ logic OTP để Demo quá trình bảo mật)
       final ok = await OtpService.verifyOtp(widget.email, _enteredOtp);
 
       if (!ok) {
         if (mounted) {
           setState(() => _loading = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("❌ Sai OTP, vui lòng thử lại")),
+            const SnackBar(content: Text("❌ Sai mã OTP, vui lòng thử lại (Gợi ý: 123456)")),
           );
         }
         return;
       }
 
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception("Người dùng chưa đăng nhập");
+      // 2. GIẢ LẬP: Mô phỏng quá trình xử lý giao dịch ngân hàng
+      await Future.delayed(const Duration(milliseconds: 2000));
 
-      final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
-      
-      // 🔹 1. Trừ tiền trong Firestore (Sửa field 'balance' cho khớp với HomeTabbar)
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        DocumentSnapshot snapshot = await transaction.get(userDoc);
-        if (!snapshot.exists) throw Exception("Không tìm thấy user trên Firestore");
+      // 3. Hoàn tất cập nhật số dư và lịch sử trong App
+      await _handleSuccessTransaction(widget.amount);
 
-        // Đọc trường 'balance' thay vì 'wallet_balance'
-        int currentBalance = (snapshot.data() as Map<String, dynamic>)['balance'] ?? 0;
-        
-        if (currentBalance < widget.amount) throw Exception("Số dư không đủ");
-
-        transaction.update(userDoc, {'balance': currentBalance - widget.amount});
-      });
-
-      // 🔹 2. Cập nhật SharedPreferences (Local cache)
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt("wallet_balance", (prefs.getInt("wallet_balance") ?? 0) - widget.amount);
-
-      // 🔹 3. Chuẩn bị dữ liệu lịch sử
-      final nowFormatted = DateFormat("HH:mm dd/MM/yyyy").format(DateTime.now());
-      String title = widget.account1 != null 
-          ? "Chuyển tiền cho ${widget.account1!.ownerName}"
-          : "Thanh toán ${widget.account2!.serviceName}";
-
-      // 🔹 4. Lưu lịch sử vào Firestore (Để ScheduleTabbar tự động cập nhật qua Stream)
-      await userDoc.collection('transactions').add({
-        'title': title,
-        'amount': -widget.amount,
-        'createdAt': FieldValue.serverTimestamp(),
-        'displayTime': nowFormatted,
-      });
-
-      // 🔹 5. Lưu lịch sử vào Local
-      await TransactionStorage.addTransaction(
-        model.Transaction(
-          title: title,
-          amount: -widget.amount,
-          time: nowFormatted,
-        ),
-      );
-
-      if (!mounted) return;
-      setState(() => _loading = false);
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TransactionResultScreen(
-            bankName: widget.account1?.bankName ?? "",
-            accountName: widget.account1?.ownerName ?? "${widget.account2!.serviceName}",
-            amount: widget.amount,
-            time: nowFormatted,
-            isServiceTransaction: widget.account2 != null,
-          ),
-        ),
-      );
     } catch (e) {
       if (mounted) {
-        setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("❌ Lỗi: ${e.toString()}")),
+          SnackBar(content: Text("❌ Lỗi hệ thống: ${e.toString()}")),
         );
       }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _handleSuccessTransaction(int amount) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final nowFormatted = DateFormat("HH:mm dd/MM/yyyy").format(DateTime.now());
+    
+    // Cập nhật số dư Firestore
+    await FirebaseFirestore.instance.runTransaction((tx) async {
+      final snapshot = await tx.get(userDoc);
+      int currentBalance = (snapshot.data()?['balance'] ?? 0) as int;
+      tx.update(userDoc, {'balance': currentBalance - amount});
+    });
+
+    // Cập nhật SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    int localBalance = prefs.getInt("wallet_balance") ?? 0;
+    await prefs.setInt("wallet_balance", localBalance - amount);
+
+    String title = widget.account1 != null 
+        ? "Chuyển tiền tới ${widget.account1!.ownerName}"
+        : "Thanh toán dịch vụ ${widget.account2!.serviceName}";
+
+    // Lưu lịch sử giao dịch vào Firestore
+    await userDoc.collection('transactions').add({
+      'title': title + " (Demo)", 
+      'amount': -amount, 
+      'createdAt': FieldValue.serverTimestamp(), 
+      'displayTime': nowFormatted,
+    });
+
+    // Lưu vào storage local
+    await TransactionStorage.addTransaction(
+      model.Transaction(title: title, amount: -amount, time: nowFormatted),
+    );
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TransactionResultScreen(
+          bankName: widget.account1?.bankName ?? "Ví điện tử",
+          accountName: widget.account1?.ownerName ?? "Hệ thống Demo",
+          amount: amount,
+          time: nowFormatted,
+          isServiceTransaction: widget.account2 != null,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Xác nhận OTP"),
-        backgroundColor: Colors.white,
+        title: const Text("Xác nhận giao dịch"), 
+        backgroundColor: Colors.white, 
         foregroundColor: Colors.black,
         elevation: 0,
       ),
@@ -135,35 +134,44 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const Icon(Icons.mark_email_read_outlined, size: 80, color: Colors.deepPurpleAccent),
+            const Icon(Icons.security, size: 80, color: Colors.deepPurple),
             const SizedBox(height: 16),
-            const Text("Mã OTP đã được gửi đến email", style: TextStyle(color: Colors.grey)),
-            Text(widget.email, style: const TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              "Mã OTP đã được gửi về Email của bạn.\nVui lòng nhập để hoàn tất giao dịch giả lập.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 15, color: Colors.grey),
+            ),
             const SizedBox(height: 32),
             PinCodeTextField(
-              appContext: context,
-              length: 6,
+              appContext: context, 
+              length: 6, 
               keyboardType: TextInputType.number,
               onChanged: (v) => _enteredOtp = v,
               pinTheme: PinTheme(
-                shape: PinCodeFieldShape.box,
-                borderRadius: BorderRadius.circular(8),
-                fieldHeight: 50,
-                fieldWidth: 45,
-                activeColor: Colors.deepPurpleAccent,
+                shape: PinCodeFieldShape.box, 
+                borderRadius: BorderRadius.circular(12), 
+                activeColor: Colors.deepPurple,
+                inactiveColor: Colors.grey.shade300,
+                selectedColor: Colors.deepPurpleAccent,
               ),
             ),
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: !_loading ? _verifyOtp : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurpleAccent,
-                minimumSize: const Size(double.infinity, 50),
+                backgroundColor: Colors.deepPurple, 
+                minimumSize: const Size(double.infinity, 55),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: _loading 
                 ? const CircularProgressIndicator(color: Colors.white) 
-                : const Text("XÁC NHẬN THANH TOÁN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                : const Text("XÁC NHẬN CHUYỂN TIỀN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Đây là môi trường thử nghiệm.\nKhông thực hiện giao dịch tài chính thật.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.redAccent, fontStyle: FontStyle.italic),
             ),
           ],
         ),

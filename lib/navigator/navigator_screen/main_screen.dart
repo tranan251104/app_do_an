@@ -4,10 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-
-
-// Màn hình 6
-
 class MainScreen extends StatefulWidget {
   final bool fromLogin;
   const MainScreen({super.key, required this.fromLogin});

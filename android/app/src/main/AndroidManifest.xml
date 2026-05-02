@@ -6,6 +6,20 @@
     <!-- Giải quyết lỗi: Permission exists without corresponding hardware -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <queries>
+        <!-- Hỗ trợ mở URL trình duyệt cho VNPay -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
+    </queries>
+
     <application
         android:label="app_do_an"
         android:name="${applicationName}"
@@ -35,12 +49,5 @@
             android:value="2" />
 
     </application>
-
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
-        </intent>
-    </queries>
 
 </manifest>

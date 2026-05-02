@@ -1,7 +1,6 @@
 import 'package:app_do_an/navigator/router/router.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -18,28 +17,20 @@ void main() async {
   // Luôn signOut khi mở app
   await FirebaseAuth.instance.signOut();
 
-  // 🔹 Clear SharedPreferences để xoá toàn bộ thông tin user
   final prefs = await SharedPreferences.getInstance();
-  //await prefs.clear();
-
-
-
-  // Lấy flag đã đăng ký
-  final isRegistered = prefs.getBool('isRegistered') ?? false;
-
-  // Lấy ngôn ngữ hệ thống
-  final systemLocale = PlatformDispatcher.instance.locale;
-  final langCode = systemLocale.languageCode;
-  final Locale defaultLocale = (langCode == 'en' || langCode == 'vi')
-      ? Locale(langCode)
-      : const Locale('vi');
+  
+  // Kiểm tra trạng thái đã có tài khoản
+  final bool isRegisteredFlag = prefs.getBool('isRegistered') ?? false;
+  final bool hasEmail = prefs.getString('user_email') != null;
+  final bool hasPhone = prefs.getString('user_phone') != null;
+  final isRegistered = isRegisteredFlag || hasEmail || hasPhone;
 
   runApp(
     EasyLocalization(
-      supportedLocales: const [Locale('en'), Locale('vi')],
+      supportedLocales: const [Locale('vi')], // Chỉ hỗ trợ tiếng Việt
       path: 'assets/langs',
-      fallbackLocale: const Locale('en'),
-      startLocale: defaultLocale,
+      fallbackLocale: const Locale('vi'),
+      startLocale: const Locale('vi'),
       saveLocale: true,
       child: MyApp(isRegistered: isRegistered),
     ),
@@ -53,10 +44,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      locale: context.locale,
-      supportedLocales: context.supportedLocales,
+      debugShowCheckedModeBanner: false,
+      locale: const Locale('vi'),
+      supportedLocales: const [Locale('vi')],
       localizationsDelegates: context.localizationDelegates,
-      routerConfig: buildRouter(isRegistered), // ✅ truyền flag vào router
+      routerConfig: buildRouter(isRegistered),
       theme: ThemeData(
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
@@ -69,8 +61,8 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Lệnh để build app thật trên máy 
-// flutter devices 
+// Lệnh để build app thật trên máy
+// flutter devices
 // adb devices
 
 // Lệnh để chạy api gửi otp

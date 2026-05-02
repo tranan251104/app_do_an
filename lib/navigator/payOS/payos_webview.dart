@@ -32,15 +32,11 @@ class _PayOSWebViewState extends State<PayOSWebView> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
-            if (mounted) {
-              setState(() => _isLoading = true);
-            }
+            if (mounted) setState(() => _isLoading = true);
             _checkUrl(url);
           },
           onPageFinished: (url) {
-            if (mounted) {
-              setState(() => _isLoading = false);
-            }
+            if (mounted) setState(() => _isLoading = false);
             _checkUrl(url);
           },
           onNavigationRequest: (request) {
@@ -55,40 +51,32 @@ class _PayOSWebViewState extends State<PayOSWebView> {
   void _checkUrl(String url) {
     if (_isProcessed) return;
 
-    Uri? uri;
-    try {
-      uri = Uri.parse(url);
-    } catch (_) {
-      return;
-    }
-
-    final String status = uri.queryParameters['status']?.toUpperCase() ?? '';
-    final String code = uri.queryParameters['code'] ?? '';
-    final String cancel = uri.queryParameters['cancel']?.toLowerCase() ?? '';
-
-    final bool isReturnUrl = url.startsWith(widget.returnUrl);
-
-    if (!isReturnUrl && status.isEmpty && code.isEmpty && cancel.isEmpty) {
-      return;
-    }
-
-    print("=== PAYOS RETURN URL ===");
-    print("url = $url");
-    print("status = $status, code = $code, cancel = $cancel");
-
-    if (cancel == 'true' || status == 'CANCELLED') {
+    // 🔹 NẾU URL BẮT ĐẦU BẰNG RETURN URL (TRANG THÀNH CÔNG) -> COI LÀ XONG
+    if (url.startsWith(widget.returnUrl) || url.contains("success")) {
       _isProcessed = true;
-      Navigator.pop(context, 0);
-      return;
-    }
-
-    // Demo: coi PAID là thành công
-    // Không dùng code == 00 để kết luận đã thanh toán
-    if (status == 'PAID') {
-      _isProcessed = true;
+      print("✅ Payment Success Detected via URL: $url");
       Navigator.pop(context, widget.amount);
       return;
     }
+
+    // 🔹 KIỂM TRA CÁC PARAMETER TỪ PAYOS
+    try {
+      final uri = Uri.parse(url);
+      final status = uri.queryParameters['status']?.toUpperCase() ?? '';
+      final cancel = uri.queryParameters['cancel']?.toLowerCase() ?? '';
+
+      if (cancel == 'true' || status == 'CANCELLED') {
+        _isProcessed = true;
+        Navigator.pop(context, 0);
+        return;
+      }
+
+      if (status == 'PAID' || status == 'SUCCESS') {
+        _isProcessed = true;
+        Navigator.pop(context, widget.amount);
+        return;
+      }
+    } catch (_) {}
   }
 
   @override
@@ -112,10 +100,7 @@ class _PayOSWebViewState extends State<PayOSWebView> {
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
-            ),
+          if (_isLoading) const Center(child: CircularProgressIndicator()),
         ],
       ),
     );

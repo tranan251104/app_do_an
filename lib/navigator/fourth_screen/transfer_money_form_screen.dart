@@ -33,7 +33,6 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
   final TextEditingController _noteController = TextEditingController();
 
   int _walletBalance = 0;
-  String? _errorMessage;
   bool _isLoading = false;
 
   @override
@@ -41,104 +40,73 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
     super.initState();
     _loadBalance();
     if (widget.presetAmount != null) {
-      _amountController.text = NumberFormat.decimalPattern().format(widget.presetAmount);
+      _amountController.text = widget.presetAmount.toString();
     }
     _amountController.addListener(() => setState(() {}));
   }
 
+  // Đọc số dư từ SharedPreferences và Firestore (đảm bảo đồng bộ)
   Future<void> _loadBalance() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        setState(() {
+          _walletBalance = doc.data()?['balance'] ?? 0;
+        });
+        // Cập nhật lại cache local
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt("wallet_balance", _walletBalance);
+        return;
+      }
+    }
+    // Nếu không lấy được từ Firestore thì lấy từ cache
     final prefs = await SharedPreferences.getInstance();
     setState(() => _walletBalance = prefs.getInt("wallet_balance") ?? 0);
   }
 
-  Future<void> _completeTransaction(int amount) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
-    final nowFormatted = DateFormat("HH:mm dd/MM/yyyy").format(DateTime.now());
-    String title = widget.account1 != null 
-        ? "Chuyển tiền cho ${widget.account1!.ownerName}"
-        : "Thanh toán ${widget.account2!.serviceName}";
-
-    await FirebaseFirestore.instance.runTransaction((transaction) async {
-      DocumentSnapshot snapshot = await transaction.get(userDoc);
-      int currentBalance = (snapshot.data() as Map<String, dynamic>)['balance'] ?? 0;
-      transaction.update(userDoc, {'balance': currentBalance - amount});
-    });
-
-    await userDoc.collection('transactions').add({
-      'title': title,
-      'amount': -amount,
-      'createdAt': FieldValue.serverTimestamp(),
-      'displayTime': nowFormatted,
-    });
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt("wallet_balance", (prefs.getInt("wallet_balance") ?? 0) - amount);
-    await TransactionStorage.addTransaction(model.Transaction(title: title, amount: -amount, time: nowFormatted));
-
-    if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => TransactionResultScreen(
-          bankName: widget.account1?.bankName ?? "",
-          accountName: widget.account1?.ownerName ?? "${widget.account2!.serviceName}",
-          amount: amount,
-          time: nowFormatted,
-          isServiceTransaction: widget.account2 != null,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAccountInfo() {
-    if (widget.account1 != null) {
-      final account = widget.account1!;
-      return Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: Colors.deepPurpleAccent,
-            child: Text(account.ownerName[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(account.ownerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text("${account.bankName} *${account.accountNumber.substring(account.accountNumber.length - 4)}", style: const TextStyle(color: Colors.grey, fontSize: 14)),
-            ],
-          ),
-        ],
-      );
-    } else {
-      final service = widget.account2!;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(service.serviceName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          Text("Nhà cung cấp: ${service.provider}", style: const TextStyle(color: Colors.grey, fontSize: 14)),
-          Text("Chi tiết: ${service.detail}", style: const TextStyle(color: Colors.grey, fontSize: 14)),
-        ],
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    bool isFormValid = _amountController.text.isNotEmpty && _errorMessage == null && !_isLoading;
+    bool isFormValid = _amountController.text.isNotEmpty && !_isLoading;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Chuyển đến"), backgroundColor: Colors.white, foregroundColor: Colors.black),
+      appBar: AppBar(
+        title: const Text("Chuyển tiền"), 
+        backgroundColor: Colors.white, 
+        foregroundColor: Colors.black,
+        elevation: 1,
+      ),
       backgroundColor: Colors.grey.shade100,
       body: Stack(
         children: [
           SingleChildScrollView(
             child: Column(
               children: [
-                Container(color: Colors.white, padding: const EdgeInsets.all(16), child: _buildAccountInfo()),
+                // Thông tin tài khoản nhận
+                Container(
+                  color: Colors.white, 
+                  padding: const EdgeInsets.all(16), 
+                  child: widget.account1 != null ? Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: Colors.deepPurpleAccent.shade100, 
+                        child: Text(widget.account1!.ownerName[0], style: const TextStyle(color: Colors.white)),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.account1!.ownerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text("${widget.account1!.bankName} - ${widget.account1!.accountNumber}", style: const TextStyle(color: Colors.grey)),
+                        ],
+                      )
+                    ],
+                  ) : const SizedBox.shrink()
+                ),
+                
                 const SizedBox(height: 12),
+
+                // Nhập số tiền
                 Container(
                   color: Colors.white,
                   padding: const EdgeInsets.all(16),
@@ -148,43 +116,70 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
                       const Text("Số tiền", style: TextStyle(color: Colors.black54)),
                       TextField(
                         controller: _amountController,
-                        enabled: widget.presetAmount == null,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                        decoration: const InputDecoration(hintText: "₫", border: InputBorder.none),
+                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.deepPurple),
+                        decoration: const InputDecoration(
+                          hintText: "0", 
+                          suffixText: "₫",
+                          border: InputBorder.none
+                        ),
                       ),
-                      Text("Số dư Ví: ₫${NumberFormat.decimalPattern().format(_walletBalance)}", style: const TextStyle(color: Colors.grey)),
+                      const Divider(),
+                      Text("Số dư khả dụng: ${NumberFormat.decimalPattern().format(_walletBalance)} ₫", 
+                        style: const TextStyle(color: Colors.grey, fontSize: 13)),
                     ],
                   ),
                 ),
+
                 const SizedBox(height: 12),
+
+                // Nhập mô tả
                 Container(
                   color: Colors.white,
                   padding: const EdgeInsets.all(16),
                   child: TextField(
                     controller: _noteController,
-                    decoration: const InputDecoration(hintText: "Mô tả giao dịch", border: InputBorder.none),
+                    decoration: const InputDecoration(
+                      hintText: "Mô tả giao dịch (không bắt buộc)", 
+                      border: InputBorder.none
+                    ),
                   ),
                 ),
-                const SizedBox(height: 32),
+
+                const SizedBox(height: 40),
+
+                // Nút tiếp tục
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: ElevatedButton(
                     onPressed: isFormValid ? () async {
-                      final cleanVal = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
-                      final amount = int.tryParse(cleanVal) ?? 0;
+                      final amount = int.tryParse(_amountController.text) ?? 0;
+                      if (amount < 10000) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Số tiền chuyển tối thiểu là 10.000₫"))
+                        );
+                        return;
+                      }
+
                       final prefs = await SharedPreferences.getInstance();
                       final userEmail = prefs.getString('user_email');
-                      final userPhone = prefs.getString('phone');
-
+                      
                       setState(() => _isLoading = true);
                       try {
                         if (userEmail != null && userEmail.isNotEmpty) {
+                          // Gửi OTP qua service đã cấu hình
                           await OtpService.sendOtp(userEmail);
                           if (!mounted) return;
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => OtpConfirmScreen(email: userEmail, account1: widget.account1, account2: widget.account2, amount: amount)));
-                        } else if (userPhone != null && userPhone.isNotEmpty) {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => OtpPhoneConfirmScreen(phone: userPhone, onVerified: () => _completeTransaction(amount))));
+                          
+                          // Chuyển sang màn hình nhập OTP
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => OtpConfirmScreen(
+                            email: userEmail, 
+                            account1: widget.account1, 
+                            account2: widget.account2, 
+                            amount: amount
+                          )));
+                        } else {
+                          throw Exception("Không tìm thấy email người dùng");
                         }
                       } catch (e) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi: $e")));
@@ -192,13 +187,22 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
                         if (mounted) setState(() => _isLoading = false);
                       }
                     } : null,
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurpleAccent, minimumSize: const Size(double.infinity, 50)),
-                    child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("TIẾP TỤC", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurpleAccent, 
+                      minimumSize: const Size(double.infinity, 55),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _isLoading 
+                      ? const CircularProgressIndicator(color: Colors.white) 
+                      : const Text("TIẾP TỤC", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                   ),
-                )
+                ),
+                const SizedBox(height: 20),
+                const Text("Xác thực OTP sẽ được thực hiện ở bước sau", style: TextStyle(color: Colors.grey, fontSize: 12)),
               ],
             ),
           ),
+          // Lớp phủ khi đang loading
           if (_isLoading) Container(color: Colors.black.withOpacity(0.1), child: const Center(child: CircularProgressIndicator())),
         ],
       ),

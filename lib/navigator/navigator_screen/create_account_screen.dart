@@ -66,6 +66,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString("name", fullName);
+      await prefs.setBool('isRegistered', true); // 🔹 Lưu flag đã đăng ký
       
       if (!mounted) return;
       context.go('/main');
@@ -79,68 +80,71 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
-        child: Column(
-          children: [
-            const Text("AnPay", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
-            const SizedBox(height: 4),
-            Text(_isPhoneMode ? "Create an account (Phone)".tr() : "Create an account (Email)".tr(), 
-                style: const TextStyle(fontSize: 18, color: Colors.grey)),
-            const SizedBox(height: 40),
-            
-            buildInput(icon: const Icon(Icons.person), hint: "First name", controller: _firstNameController),
-            buildInput(icon: const Icon(Icons.person_outline), hint: "Last name", controller: _lastNameController),
-
-            const SizedBox(height: 16),
-            buildInput(
-              icon: Icon(_isPhoneMode ? Icons.phone : Icons.email_outlined),
-              hint: _isPhoneMode ? "Số điện thoại".tr() : "Email".tr(),
-              controller: _identifierController,
-              keyboardType: _isPhoneMode ? TextInputType.phone : TextInputType.emailAddress,
-            ),
-            buildInput(icon: const Icon(Icons.lock_outline), hint: "Mật khẩu".tr(), controller: _passwordController, obscure: true),
-
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _handleRegister,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent, 
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
+          child: Column(
+            children: [
+              const Text("AnPay", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+              const SizedBox(height: 4),
+              Text(_isPhoneMode ? "Create an account (Phone)".tr() : "Create an account (Email)".tr(), 
+                  style: const TextStyle(fontSize: 18, color: Colors.grey)),
+              const SizedBox(height: 40),
+              
+              buildInput(icon: const Icon(Icons.person), hint: "First name", controller: _firstNameController),
+              buildInput(icon: const Icon(Icons.person_outline), hint: "Last name", controller: _lastNameController),
+        
+              const SizedBox(height: 16),
+              buildInput(
+                icon: Icon(_isPhoneMode ? Icons.phone : Icons.email_outlined),
+                hint: _isPhoneMode ? "Số điện thoại".tr() : "Email".tr(),
+                controller: _identifierController,
+                keyboardType: _isPhoneMode ? TextInputType.phone : TextInputType.emailAddress,
               ),
-              child: _isLoading 
-                ? const CircularProgressIndicator(color: Colors.white) 
-                : Text("ĐĂNG KÝ", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-            ),
-            
-            const SizedBox(height: 30),
-            SocialButton(
-              mode: "register",
-              isPhonePage: _isPhoneMode,
-              onToggleMode: () {
-                setState(() {
-                  _isPhoneMode = !_isPhoneMode;
-                  _identifierController.clear();
-                });
-              },
-            ),
-            
-            const SizedBox(height: 32),
-            RichText(
-              text: TextSpan(
-                text: "Already have an account? ".tr(),
-                style: const TextStyle(color: Colors.black),
-                children: [
-                  TextSpan(
-                    text: "Login".tr(),
-                    style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
-                    recognizer: TapGestureRecognizer()..onTap = () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WelcomeScreen(fromLogin: true))),
-                  ),
-                ],
+              buildInput(icon: const Icon(Icons.lock_outline), hint: "Mật khẩu".tr(), controller: _passwordController, obscure: true),
+        
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _handleRegister,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent, 
+                  minimumSize: const Size(double.infinity, 52),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: _isLoading 
+                  ? const CircularProgressIndicator(color: Colors.white) 
+                  : Text("ĐĂNG KÝ", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
               ),
-            ),
-          ],
+              
+              const SizedBox(height: 30),
+              SocialButton(
+                mode: "register",
+                isPhonePage: _isPhoneMode,
+                onToggleMode: () {
+                  setState(() {
+                    _isPhoneMode = !_isPhoneMode;
+                    _identifierController.clear();
+                  });
+                },
+              ),
+              
+              const SizedBox(height: 32),
+              RichText(
+                text: TextSpan(
+                  text: "Already have an account? ".tr(),
+                  style: const TextStyle(color: Colors.black),
+                  children: [
+                    TextSpan(
+                      text: "Login".tr(),
+                      style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
+                      recognizer: TapGestureRecognizer()..onTap = () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WelcomeScreen(fromLogin: true))),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
