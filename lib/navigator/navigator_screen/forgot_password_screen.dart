@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:app_do_an/navigator/service/otp.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'otp_verify_screen.dart';
 import 'package:app_do_an/navigator/navigator_widget/social_button_widget.dart';
 import 'package:app_do_an/navigator/navigator_widget/input_widget.dart';
@@ -23,6 +24,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _identifierController = TextEditingController();
   bool _loading = false;
   bool _isPhoneMode = false;
+  final _auth = FirebaseAuth.instance;
 
   @override
   void dispose() {
@@ -36,26 +38,68 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     setState(() => _loading = true);
     try {
-      await OtpService.sendOtp(identifier);
+      if (_isPhoneMode) {
+        // Gửi OTP qua Số điện thoại (Firebase)
+        final formattedPhone = identifier.startsWith("+84") 
+            ? identifier 
+            : "+84${identifier.startsWith('0') ? identifier.substring(1) : identifier}";
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isPhoneMode ? "OTP đã được gửi tới SĐT".tr() : "OTP đã được gửi tới email".tr())),
-      );
+        await _auth.verifyPhoneNumber(
+          phoneNumber: formattedPhone,
+          verificationCompleted: (PhoneAuthCredential credential) async {
+            // Có thể tự động đăng nhập nếu Firebase hỗ trợ tự động xác thực
+          },
+          verificationFailed: (FirebaseAuthException e) {
+            setState(() => _loading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("❌ Lỗi: ${e.message}")),
+            );
+          },
+          codeSent: (String verificationId, int? resendToken) {
+            setState(() => _loading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("OTP đã được gửi tới SĐT".tr())),
+            );
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => OtpVerifyScreen(
+                  identifier: identifier,
+                  isPhoneMode: true,
+                  verificationId: verificationId,
+                  mode: widget.mode,
+                ),
+              ),
+            );
+          },
+          codeAutoRetrievalTimeout: (String verificationId) {},
+        );
+      } else {
+        // Gửi OTP qua Email (OtpService)
+        await OtpService.sendOtp(identifier);
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => OtpVerifyScreen(
-            email: identifier,
-            mode: widget.mode,
+        if (!mounted) return;
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("OTP đã được gửi tới email".tr())),
+        );
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OtpVerifyScreen(
+              identifier: identifier,
+              isPhoneMode: false,
+              mode: widget.mode,
+            ),
           ),
-        ),
-      );
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("❌ Lỗi: $e")));
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("❌ Lỗi: $e")));
+      }
     }
   }
 

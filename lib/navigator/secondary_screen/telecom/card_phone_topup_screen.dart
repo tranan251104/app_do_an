@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:app_do_an/navigator/model/bankAccount2.dart';
+import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/fourth_screen/transfer_money_form_screen.dart';
 import 'package:intl/intl.dart';
 
@@ -81,7 +81,7 @@ class _CardTopupScreenState extends State<CardTopupScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => TransferMoneyFormScreen(
-                            account2: BankAccount2(
+                            account: PaymentAccount.fromService(
                               serviceName: "Mua mã thẻ",
                               provider: _selectedProvider!,
                               detail: "Mệnh giá: ${NumberFormat.decimalPattern().format(_selectedAmount)}đ",

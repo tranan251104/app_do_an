@@ -2,17 +2,19 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class OtpService {
-  static const String baseUrl = "http://10.0.2.2:5001/app-do-an-ae40f/us-central1/api";
+  // Đã xóa "/api" ở cuối để khớp chính xác với Firebase Emulator của bạn
+  static const String baseUrl = "https://5cfa-2402-800-f2b6-6e75-9d4c-f626-9c72-7781.ngrok-free.app/app-do-an-ae40f/us-central1";
 
   static Future<void> sendOtp(String email) async {
     try {
-      print("[MÁY THẬT] Đang gửi OTP tới: $email qua $baseUrl/sendOtp");
+      print("[NGROK] Đang gửi OTP tới: $email qua $baseUrl/sendOtp");
       
       final res = await http.post(
         Uri.parse("$baseUrl/sendOtp"),
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
+          "ngrok-skip-browser-warning": "any", // Header bắt buộc để chạy qua Ngrok bản miễn phí
         },
         body: jsonEncode({"email": email}),
       ).timeout(const Duration(seconds: 15));
@@ -23,7 +25,7 @@ class OtpService {
       }
     } catch (e) {
       print("Lỗi gửi OTP: $e");
-      throw Exception("Không thể kết nối tới máy chủ (IP: 192.168.1.145). \nKiểm tra: 1. Chung WiFi chưa? 2. Đã tắt Firewall máy tính chưa?");
+      throw Exception("Không thể kết nối tới server qua Ngrok.\nKiểm tra: 1. Link Ngrok đã đúng chưa? 2. Firebase Emulator đã chạy chưa?");
     }
   }
 
@@ -31,7 +33,10 @@ class OtpService {
     try {
       final res = await http.post(
         Uri.parse("$baseUrl/verifyOtp"),
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "any",
+        },
         body: jsonEncode({"email": email, "otp": otp}),
       ).timeout(const Duration(seconds: 15));
 
@@ -45,7 +50,10 @@ class OtpService {
     try {
       final res = await http.post(
         Uri.parse("$baseUrl/resetPassword"),
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "any",
+        },
         body: jsonEncode({"email": email, "newPassword": newPassword}),
       ).timeout(const Duration(seconds: 15));
 
@@ -53,7 +61,7 @@ class OtpService {
         throw Exception("Lỗi: ${res.body}");
       }
     } catch (e) {
-      throw Exception("Lỗi kết nối máy chủ");
+      throw Exception("Lỗi kết nối máy chủ qua Ngrok");
     }
   }
 }

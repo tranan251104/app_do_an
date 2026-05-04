@@ -3,24 +3,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:app_do_an/navigator/model/bankAccount1.dart';
-import 'package:app_do_an/navigator/model/bankAccount2.dart';
-import 'package:app_do_an/navigator/model/transaction.dart' as model;
-import 'package:app_do_an/navigator/service/transaction_storage.dart';
+import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/fourth_screen/otp_confirm_screen.dart';
 import 'package:app_do_an/navigator/service/otp.dart';
-import 'package:app_do_an/navigator/fourth_screen/result_screen.dart';
-import 'package:app_do_an/navigator/fourth_screen/otp_confirm_phone_screen.dart';
 
 class TransferMoneyFormScreen extends StatefulWidget {
-  final BankAccount1? account1;
-  final BankAccount2? account2;
+  final PaymentAccount account;
   final int? presetAmount;
 
   const TransferMoneyFormScreen({
     super.key,
-    this.account1,
-    this.account2,
+    required this.account,
     this.presetAmount,
   });
 
@@ -45,7 +38,6 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
     _amountController.addListener(() => setState(() {}));
   }
 
-  // Đọc số dư từ SharedPreferences và Firestore (đảm bảo đồng bộ)
   Future<void> _loadBalance() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -54,13 +46,11 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
         setState(() {
           _walletBalance = doc.data()?['balance'] ?? 0;
         });
-        // Cập nhật lại cache local
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt("wallet_balance", _walletBalance);
         return;
       }
     }
-    // Nếu không lấy được từ Firestore thì lấy từ cache
     final prefs = await SharedPreferences.getInstance();
     setState(() => _walletBalance = prefs.getInt("wallet_balance") ?? 0);
   }
@@ -71,7 +61,7 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Chuyển tiền"), 
+        title: Text(widget.account.isService ? "Thanh toán" : "Chuyển tiền"), 
         backgroundColor: Colors.white, 
         foregroundColor: Colors.black,
         elevation: 1,
@@ -82,31 +72,33 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
           SingleChildScrollView(
             child: Column(
               children: [
-                // Thông tin tài khoản nhận
                 Container(
                   color: Colors.white, 
                   padding: const EdgeInsets.all(16), 
-                  child: widget.account1 != null ? Row(
+                  child: Row(
                     children: [
                       CircleAvatar(
                         backgroundColor: Colors.deepPurpleAccent.shade100, 
-                        child: Text(widget.account1!.ownerName[0], style: const TextStyle(color: Colors.white)),
+                        child: Text(widget.account.name[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
                       ),
                       const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(widget.account1!.ownerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text("${widget.account1!.bankName} - ${widget.account1!.accountNumber}", style: const TextStyle(color: Colors.grey)),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(widget.account.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            Text("${widget.account.provider} - ${widget.account.accountNumber}", style: const TextStyle(color: Colors.grey)),
+                            if (widget.account.detail != null)
+                              Text(widget.account.detail!, style: const TextStyle(color: Colors.deepPurple, fontSize: 12)),
+                          ],
+                        ),
                       )
                     ],
-                  ) : const SizedBox.shrink()
+                  ),
                 ),
                 
                 const SizedBox(height: 12),
 
-                // Nhập số tiền
                 Container(
                   color: Colors.white,
                   padding: const EdgeInsets.all(16),
@@ -133,7 +125,6 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
 
                 const SizedBox(height: 12),
 
-                // Nhập mô tả
                 Container(
                   color: Colors.white,
                   padding: const EdgeInsets.all(16),
@@ -148,7 +139,6 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
 
                 const SizedBox(height: 40),
 
-                // Nút tiếp tục
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: ElevatedButton(
@@ -156,7 +146,14 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
                       final amount = int.tryParse(_amountController.text) ?? 0;
                       if (amount < 10000) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Số tiền chuyển tối thiểu là 10.000₫"))
+                          const SnackBar(content: Text("Số tiền tối thiểu là 10.000₫"))
+                        );
+                        return;
+                      }
+
+                      if (amount > _walletBalance) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Số dư không đủ"))
                         );
                         return;
                       }
@@ -167,15 +164,12 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
                       setState(() => _isLoading = true);
                       try {
                         if (userEmail != null && userEmail.isNotEmpty) {
-                          // Gửi OTP qua service đã cấu hình
                           await OtpService.sendOtp(userEmail);
                           if (!mounted) return;
                           
-                          // Chuyển sang màn hình nhập OTP
                           Navigator.push(context, MaterialPageRoute(builder: (_) => OtpConfirmScreen(
                             email: userEmail, 
-                            account1: widget.account1, 
-                            account2: widget.account2, 
+                            account: widget.account, 
                             amount: amount
                           )));
                         } else {
@@ -202,7 +196,6 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
               ],
             ),
           ),
-          // Lớp phủ khi đang loading
           if (_isLoading) Container(color: Colors.black.withOpacity(0.1), child: const Center(child: CircularProgressIndicator())),
         ],
       ),

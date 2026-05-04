@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:app_do_an/navigator/model/bankAccount1.dart';
+import 'package:app_do_an/navigator/model/payment_account.dart';
 
 class AddBankAccountScreen extends StatefulWidget {
-  final Function(BankAccount1) onSubmit;
+  final Function(PaymentAccount) onSubmit;
 
   const AddBankAccountScreen({super.key, required this.onSubmit});
 
@@ -68,7 +68,7 @@ class _AddBankAccountScreenState extends State<AddBankAccountScreen> {
       return;
     }
 
-    final account = BankAccount1(
+    final account = PaymentAccount.fromBank(
       bankName: _selectedBank!,
       accountNumber: _accountController.text,
       ownerName: _ownerController.text,
@@ -158,7 +158,6 @@ class _AddBankAccountScreenState extends State<AddBankAccountScreen> {
             ),
           ),
 
-          // 🔹 Nút "TIẾP THEO" bật/tắt tùy theo form
           Container(
             padding: const EdgeInsets.all(16),
             width: double.infinity,
@@ -177,4 +176,3 @@ class _AddBankAccountScreenState extends State<AddBankAccountScreen> {
     );
   }
 }
-

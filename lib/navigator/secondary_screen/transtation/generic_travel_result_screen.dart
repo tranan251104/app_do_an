@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:app_do_an/navigator/service/app_data.dart';
-import 'package:app_do_an/navigator/model/bankAccount2.dart';
+import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/fourth_screen/transfer_money_form_screen.dart';
 import 'package:intl/intl.dart';
 
@@ -22,7 +22,6 @@ class GenericTravelResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🔹 Cập nhật truyền đủ 3 tham số để lọc chuyến đi theo route
     final List<TripModel> trips = AppData.getMockTrips(type, from, to);
 
     return Scaffold(
@@ -63,7 +62,7 @@ class GenericTravelResultScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => TransferMoneyFormScreen(
-                          account2: BankAccount2(
+                          account: PaymentAccount.fromService(
                             serviceName: title,
                             provider: trip.brand,
                             detail: "$from -> $to | ${trip.time} | ${trip.type}",

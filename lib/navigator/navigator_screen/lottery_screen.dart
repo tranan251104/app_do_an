@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:app_do_an/navigator/model/bankAccount2.dart';
+import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/fourth_screen/transfer_money_form_screen.dart';
 
 class LotteryScreen extends StatefulWidget {
@@ -74,7 +74,7 @@ class _LotteryScreenState extends State<LotteryScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => TransferMoneyFormScreen(
-          account2: BankAccount2(
+          account: PaymentAccount.fromService(
             serviceName: "Mua vé số",
             provider: lotteryType,
             detail: "Các vé: $ticketDetails",

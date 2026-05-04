@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:app_do_an/navigator/model/bankAccount2.dart';
+import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/fourth_screen/transfer_money_form_screen.dart';
 
 class GenericBillScreen extends StatefulWidget {
@@ -100,16 +100,15 @@ class _GenericBillScreenState extends State<GenericBillScreen> {
             padding: const EdgeInsets.all(16),
             child: ElevatedButton(
               onPressed: _isValid ? () {
-                // Chuyển sang màn hình nhập số tiền (TransferMoneyFormScreen)
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => TransferMoneyFormScreen(
-                      account2: BankAccount2(
+                      account: PaymentAccount.fromService(
                         serviceName: widget.title,
                         provider: _selectedProvider ?? "N/A",
                         detail: "Mã KH: ${_idController.text}",
-                        accountNumber: _idController.text, // ✅ Đã thêm tham số thiếu
+                        accountNumber: _idController.text,
                       ),
                     ),
                   ),

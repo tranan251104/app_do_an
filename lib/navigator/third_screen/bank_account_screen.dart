@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:app_do_an/navigator/model/bankAccount1.dart';
+import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'add_bank_account_screen.dart';
 import 'package:app_do_an/navigator/fourth_screen/transfer_money_form_screen.dart'; 
 
@@ -13,7 +13,7 @@ class BankAccountScreen extends StatefulWidget {
 }
 
 class _BankAccountScreenState extends State<BankAccountScreen> {
-  List<BankAccount1> savedAccounts = [];
+  List<PaymentAccount> savedAccounts = [];
 
   @override
   void initState() {
@@ -27,7 +27,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     if (data != null) {
       setState(() {
         savedAccounts =
-            data.map((e) => BankAccount1.fromJson(json.decode(e))).toList();
+            data.map((e) => PaymentAccount.fromJson(json.decode(e))).toList();
       });
     }
   }
@@ -38,7 +38,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     await prefs.setStringList("bankAccounts", data);
   }
 
-  void _addAccount(BankAccount1 account) {
+  void _addAccount(PaymentAccount account) {
     setState(() {
       savedAccounts.add(account);
     });
@@ -112,15 +112,15 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                       return ListTile(
                         leading: const Icon(Icons.account_balance,
                             color: Colors.red),
-                        title: Text(acc.ownerName.toUpperCase()),
+                        title: Text(acc.name.toUpperCase()),
                         subtitle: Text(
-                          "${acc.bankName} *${acc.accountNumber.substring(acc.accountNumber.length - 4)}",
+                          "${acc.provider} *${acc.accountNumber.length > 4 ? acc.accountNumber.substring(acc.accountNumber.length - 4) : acc.accountNumber}",
                         ),
                         onTap: () async {
                           final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => TransferMoneyFormScreen(account1: acc),
+                              builder: (_) => TransferMoneyFormScreen(account: acc),
                             ),
                           );
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:app_do_an/navigator/model/bankAccount2.dart';
+import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/fourth_screen/transfer_money_form_screen.dart';
 import 'package:intl/intl.dart';
 
@@ -38,17 +38,15 @@ class _PhoneTopupScreenState extends State<PhoneTopupScreen> {
         backgroundColor: Colors.purple,
         foregroundColor: Colors.white,
       ),
-      // 🔹 Sử dụng resizeToAvoidBottomInset để tránh bị đẩy layout quá mức
       resizeToAvoidBottomInset: true, 
       body: Column(
         children: [
           Expanded(
-            child: SingleChildScrollView( // 🔹 Bọc trong ScrollView để cuộn được khi có bàn phím
+            child: SingleChildScrollView( 
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  /// 🔹 Nhập số điện thoại
                   const Text("Số điện thoại",
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
@@ -63,7 +61,6 @@ class _PhoneTopupScreenState extends State<PhoneTopupScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  /// 🔹 Chọn mệnh giá
                   const Text("Chọn mệnh giá",
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
@@ -90,7 +87,6 @@ class _PhoneTopupScreenState extends State<PhoneTopupScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  /// 🔹 Nhập số tiền khác
                   const Text("Hoặc nhập số tiền khác",
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
@@ -126,7 +122,6 @@ class _PhoneTopupScreenState extends State<PhoneTopupScreen> {
             ),
           ),
 
-          // 🔹 Nút tiếp tục đặt cố định ở dưới
           Padding(
             padding: const EdgeInsets.all(16),
             child: SizedBox(
@@ -142,7 +137,7 @@ class _PhoneTopupScreenState extends State<PhoneTopupScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => TransferMoneyFormScreen(
-                              account2: BankAccount2(
+                              account: PaymentAccount.fromService(
                                 serviceName: "Nạp tiền điện thoại",
                                 provider: "Điện thoại",
                                 detail: _phoneController.text,

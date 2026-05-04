@@ -1,116 +1,59 @@
-const functions = require("firebase-functions");
+const {onRequest} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const {FieldValue} = require("firebase-admin/firestore");
 const nodemailer = require("nodemailer");
-const express = require("express");
 
 admin.initializeApp();
 const db = admin.firestore();
-const app = express();
 
-// Middleware parse JSON thủ công
-app.use(express.json());
-
-// Gmail hệ thống
+// CẤU HÌNH GỬI MAIL
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: "tranan251104@gmail.com",
-    pass: "dghjshfwxmvwtydo", // App password Gmail
+    pass: "bljupjxiklhwxoka", // Mật khẩu ứng dụng của bạn
   },
 });
 
-// API gửi OTP
-app.post("/sendOtp", async (req, res) => {
+exports.sendOtp = onRequest({ cors: true }, async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).send("Thiếu email");
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
   try {
-    console.log("📩 Raw body:", req.body);
-
-    const email = req.body.email;
-    console.log("📩 Sending OTP to:", email);
-
-    if (!email) {
-      return res.status(400).send("Email is required");
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
     // Lưu OTP vào Firestore
     await db.collection("otps").doc(email).set({
       otp: otp,
-      createdAt: FieldValue.serverTimestamp(), // ✅ dùng FieldValue chứ không phải admin.firestore.FieldValue
+      createdAt: FieldValue.serverTimestamp(), // Đã sửa cách gọi FieldValue
     });
 
-    // Gửi email
-    const mailOptions = {
-      from: "tranan251104@gmail.com",
+    // Gửi mail thật
+    await transporter.sendMail({
+      from: '"ANPAY Support" <tranan251104@gmail.com>',
       to: email,
-      subject: "Xác nhận giao dịch",
-      text: `Mã OTP của bạn là: ${otp} (có hiệu lực trong 5 phút)`,
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log("✅ OTP sent to:", email, "Code:", otp);
-    res.status(200).send("OTP sent to " + email);
-
-  } catch (err) {
-    console.error("❌ Error in sendOtp:", err);   // log chi tiết
-    res.status(500).send("Server error: " + err.message); // trả error cụ thể
-  }
-});
-
-// API xác minh OTP
-app.post("/verifyOtp", async (req, res) => {
-  try {
-    console.log("📩 Verify body:", req.body);
-    const email = req.body.email;
-    const otpInput = req.body.otp;
-
-    if (!email || !otpInput) {
-      return res.status(400).send("Email and OTP are required");
-    }
-    const doc = await db.collection("otps").doc(email).get();
-    if (!doc.exists) return res.status(400).send("OTP not found");
-
-    const { otp } = doc.data();
-    if (otp === otpInput) {
-      await db.collection("otps").doc(email).delete();
-      console.log("✅ OTP verified for:", email);
-      return res.status(200).send("OK");
-    } else {
-      console.log("❌ Wrong OTP for:", email, "Input:", otpInput, "Expected:", otp);
-      return res.status(400).send("Sai OTP");
-    }
-  } catch (err) {
-    console.error("❌ Error in verifyOtp:", err);
-    res.status(500).send("Server error: " + err.message);
-  }
-});
-
-// API đặt lại mật khẩu
-app.post("/resetPassword", async (req, res) => {
-  try {
-    const { email, newPassword } = req.body;
-
-    if (!email || !newPassword) {
-      return res.status(400).send("Email and new password are required");
-    }
-
-    // Tìm user theo email
-    const user = await admin.auth().getUserByEmail(email);
-
-    // Cập nhật mật khẩu mới
-    await admin.auth().updateUser(user.uid, {
-      password: newPassword,
+      subject: "Mã xác thực OTP của bạn",
+      text: `Mã OTP của bạn là: ${otp}. Mã có hiệu lực trong 5 phút.`,
     });
 
-    console.log("✅ Password reset for:", email);
-    res.status(200).send("Password updated successfully");
-  } catch (err) {
-    console.error("❌ Error in resetPassword:", err);
-    res.status(500).send("Server error: " + err.message);
+    res.status(200).send({ message: "Đã gửi OTP" });
+  } catch (error) {
+    console.error("Lỗi gửi mail:", error);
+    res.status(500).send("Lỗi hệ thống: " + error.message);
   }
 });
 
-// Export API
-exports.api = functions.https.onRequest(app);
-
+exports.verifyOtp = onRequest({ cors: true }, async (req, res) => {
+  const { email, otp } = req.body;
+  try {
+    const doc = await db.collection("otps").doc(email).get();
+    if (doc.exists && doc.data().otp === otp) {
+      await db.collection("otps").doc(email).delete();
+      res.status(200).send({ success: true });
+    } else {
+      res.status(400).send({ success: false, message: "Mã không đúng hoặc hết hạn" });
+    }
+  } catch (error) {
+    res.status(500).send("Lỗi xác thực");
+  }
+});

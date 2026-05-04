@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_do_an/navigator/service/otp.dart';
-import 'package:app_do_an/navigator/model/bankAccount1.dart';
-import 'package:app_do_an/navigator/model/bankAccount2.dart';
+import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/fourth_screen/result_screen.dart';
 import 'package:app_do_an/navigator/model/transaction.dart' as model;
 import 'package:app_do_an/navigator/service/transaction_storage.dart';
@@ -13,18 +12,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class OtpConfirmScreen extends StatefulWidget {
   final String email;
-  final BankAccount1? account1; 
-  final BankAccount2? account2; 
+  final PaymentAccount account;
   final int amount;
 
   const OtpConfirmScreen({
     super.key,
     required this.email,
-    this.account1,
-    this.account2,
+    required this.account,
     required this.amount,
-  }) : assert(account1 != null || account2 != null,
-            "Phải truyền account1 hoặc account2");
+  });
 
   @override
   State<OtpConfirmScreen> createState() => _OtpConfirmScreenState();
@@ -40,7 +36,7 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
     setState(() => _loading = true);
 
     try {
-      // 1. Xác thực OTP (Vẫn giữ logic OTP để Demo quá trình bảo mật)
+      // 1. Xác thực OTP
       final ok = await OtpService.verifyOtp(widget.email, _enteredOtp);
 
       if (!ok) {
@@ -89,9 +85,9 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
     int localBalance = prefs.getInt("wallet_balance") ?? 0;
     await prefs.setInt("wallet_balance", localBalance - amount);
 
-    String title = widget.account1 != null 
-        ? "Chuyển tiền tới ${widget.account1!.ownerName}"
-        : "Thanh toán dịch vụ ${widget.account2!.serviceName}";
+    String title = widget.account.isService 
+        ? "Thanh toán dịch vụ ${widget.account.name}"
+        : "Chuyển tiền tới ${widget.account.name}";
 
     // Lưu lịch sử giao dịch vào Firestore
     await userDoc.collection('transactions').add({
@@ -111,11 +107,11 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => TransactionResultScreen(
-          bankName: widget.account1?.bankName ?? "Ví điện tử",
-          accountName: widget.account1?.ownerName ?? "Hệ thống Demo",
+          bankName: widget.account.provider,
+          accountName: widget.account.name,
           amount: amount,
           time: nowFormatted,
-          isServiceTransaction: widget.account2 != null,
+          isServiceTransaction: widget.account.isService,
         ),
       ),
     );

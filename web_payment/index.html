@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>ANPAY - Thanh toán nhanh</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f2f5; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 90%; max-width: 400px; text-align: center; }
+        .logo { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #333; }
+        .logo span { color: #e53935; }
+        #recipientName { color: #6200ee; margin: 10px 0; font-size: 22px; }
+        input { width: 100%; padding: 15px; margin: 20px 0; border: 2px solid #eee; border-radius: 12px; font-size: 20px; box-sizing: border-box; outline: none; }
+        button { width: 100%; padding: 15px; background: #e53935; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        button:disabled { background: #ccc; }
+        .success-box { display: none; color: #4caf50; }
+    </style>
+</head>
+<body>
+    <div class="card" id="mainCard">
+        <div class="logo">AN<span>PAY</span></div>
+        <p>Thanh toán cho</p>
+        <h3 id="recipientName">Đang tải...</h3>
+        <input type="number" id="amount" placeholder="Nhập số tiền (VNĐ)">
+        <button id="payBtn">XÁC NHẬN THANH TOÁN</button>
+    </div>
+
+    <div class="card success-box" id="successCard">
+        <div style="font-size: 60px;">✓</div>
+        <h3>Thành công!</h3>
+        <p id="resultText"></p>
+    </div>
+
+    <script>
+        // Cấu hình lấy trực tiếp từ lib/firebase_options.dart của bạn
+        const firebaseConfig = {
+            apiKey: "AIzaSyC0n0_CrtjtqTClXA-JvcjYZ-vlZcrGBuE",
+            authDomain: "app-do-an-ae40f.firebaseapp.com",
+            projectId: "app-do-an-ae40f",
+            storageBucket: "app-do-an-ae40f.firebasestorage.app",
+            messagingSenderId: "891403960585",
+            appId: "1:891403960585:web:45dc03cdbcf492261753d8"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const uid = urlParams.get('uid');
+        const name = decodeURIComponent(urlParams.get('name') || "Người dùng");
+        document.getElementById('recipientName').innerText = name;
+
+        document.getElementById('payBtn').onclick = async () => {
+            const amount = parseInt(document.getElementById('amount').value);
+            if (!amount || amount < 1000) return alert("Tối thiểu 1.000đ");
+
+            document.getElementById('payBtn').disabled = true;
+            document.getElementById('payBtn').innerText = "ĐANG XỬ LÝ...";
+
+            try {
+                const userRef = db.collection('users').doc(uid);
+                await db.runTransaction(async (t) => {
+                    const doc = await t.get(userRef);
+                    const newBal = (doc.data().balance || 0) + amount;
+                    t.update(userRef, { balance: newBal });
+                });
+
+                await userRef.collection('transactions').add({
+                    title: "Nhận tiền từ Web QR",
+                    amount: amount,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    displayTime: new Date().toLocaleString('vi-VN')
+                });
+
+                document.getElementById('mainCard').style.display = 'none';
+                document.getElementById('successCard').style.display = 'block';
+                document.getElementById('resultText').innerText = "Đã chuyển " + amount.toLocaleString() + "đ cho " + name;
+            } catch (e) {
+                alert("Lỗi: " + e.message);
+                document.getElementById('payBtn').disabled = false;
+            }
+        };
+    </script>
+</body>
+</html>
