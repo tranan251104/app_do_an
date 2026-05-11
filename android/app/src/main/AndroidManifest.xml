@@ -2,12 +2,14 @@
 
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Quyền hiển thị thông báo cho Android 13 trở lên -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
-    <!-- Giải quyết lỗi: Permission exists without corresponding hardware -->
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Đảm bảo camera được yêu cầu -->
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <queries>
-        <!-- Hỗ trợ mở URL trình duyệt cho VNPay -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.BROWSABLE" />

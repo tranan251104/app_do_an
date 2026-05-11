@@ -23,7 +23,14 @@ class _ProfileTabbarState extends State<ProfileTabbar> {
     if (user != null) {
       final docRef = FirebaseFirestore.instance.collection("users").doc(user.uid);
       final doc = await docRef.get();
-      if (doc.exists) return doc.data();
+      if (doc.exists) {
+        final data = doc.data();
+        // Cập nhật lại cache tên mới nhất từ Firestore vào SharedPreferences
+        if (data != null && data['fullName'] != null) {
+          await prefs.setString("name", data['fullName']);
+        }
+        return data;
+      }
       
       final newData = {
         "fullName": user.displayName ?? "",
@@ -44,8 +51,16 @@ class _ProfileTabbarState extends State<ProfileTabbar> {
   }
 
   Future<void> _logout() async {
+    // 1. Đăng xuất Firebase
     await FirebaseAuth.instance.signOut();
+    
+    // 2. Xóa sạch cache trong SharedPreferences để tránh lộ thông tin sang tài khoản sau
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); 
+    
     if (!mounted) return;
+    
+    // 3. Quay về màn hình chào mừng
     Navigator.of(context, rootNavigator: true).pushReplacement(
       MaterialPageRoute(builder: (_) => const WelcomeScreen(fromLogin: true)),
     );
@@ -66,7 +81,9 @@ class _ProfileTabbarState extends State<ProfileTabbar> {
             children: [
               ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person)),
-                title: Text(data['fullName'] ?? "Chưa có tên"),
+                title: Text(data['fullName'] != null && data['fullName'].toString().isNotEmpty 
+                    ? data['fullName'] 
+                    : "Chưa có tên (N/A)"),
                 subtitle: Text(data['email']?.isNotEmpty == true ? data['email'] : (data['phone'] ?? "Không có thông tin")),
               ),
               const Divider(),

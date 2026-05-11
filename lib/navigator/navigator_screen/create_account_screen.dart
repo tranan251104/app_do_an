@@ -55,6 +55,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           'createdAt': FieldValue.serverTimestamp(),
         });
       } else {
+        // Đối với chế độ Phone, tạm thời giả lập hoặc xử lý theo logic Firebase Auth Phone nếu có
         await FirebaseFirestore.instance.collection('users').add({
           'fullName': fullName,
           'phone': input,
@@ -66,10 +67,18 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString("name", fullName);
-      await prefs.setBool('isRegistered', true); // 🔹 Lưu flag đã đăng ký
+      await prefs.setString("login_method", _isPhoneMode ? "phone" : "email");
+      if (_isPhoneMode) {
+        await prefs.setString("user_phone", input);
+      } else {
+        await prefs.setString("user_email", input);
+      }
       
       if (!mounted) return;
-      context.go('/main');
+      
+      // 🔹 Thay đổi: Đi đến màn hình Profile để cập nhật thông tin thay vì vào thẳng Main
+      context.go('/profile');
+
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi: ${e.toString()}")));
     } finally {

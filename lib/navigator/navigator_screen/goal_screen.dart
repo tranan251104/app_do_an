@@ -166,11 +166,8 @@ class _StateGoalScreen extends State<GoalScreen> {
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('isRegistered', true);
 
-                      /*Navigator.push(
-                        context,
-                        CupertinoPageRoute(builder: (_) => const WelcomeScreen(fromLogin: true,))
-                      );*/
-                      context.go('/welcome');
+                      // 🔹 Chuyển sang màn hình Main (Màn hình Welcome to AnPay) sau khi hoàn tất
+                      context.go('/main');
                     },
                     child: Text(
                       "Confirm".tr(),
@@ -191,5 +188,3 @@ class _StateGoalScreen extends State<GoalScreen> {
     
   }
 }
-
-

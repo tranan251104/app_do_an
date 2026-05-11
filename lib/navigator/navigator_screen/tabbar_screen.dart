@@ -4,7 +4,7 @@ import 'package:app_do_an/navigator/navigator_tabbar/schedule_tabbar.dart';
 import 'package:app_do_an/navigator/navigator_tabbar/topup_tabbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:app_do_an/navigator/qr/qr_scan_screen.dart'; // 👈 dùng QrMainScreen
+import 'package:app_do_an/navigator/qr/qr_scan_screen.dart';
 
 class TabbarScreen extends StatefulWidget {
   const TabbarScreen({super.key});
@@ -15,14 +15,6 @@ class TabbarScreen extends StatefulWidget {
 
 class _TabbarScreenState extends State<TabbarScreen> {
   int _selectedIndex = 0;
-
-  final List<Widget> _pages = [
-    const HomeTabbar(),
-    const TopUpTabbar(),
-    const QRScanScreen(),   // 👈 hiển thị luôn trong tab QR
-    const ScheduleTabbar(),
-    const ProfileTabbar(),
-  ];
 
   void _onItemTapped(int index) {
     setState(() {
@@ -42,7 +34,14 @@ class _TabbarScreenState extends State<TabbarScreen> {
       child: Scaffold(
         body: IndexedStack(
           index: _selectedIndex,
-          children: _pages,
+          children: [
+            const HomeTabbar(),
+            const TopUpTabbar(),
+            // 🔹 Chỉ hiện màn hình quét QR ở Tab chính
+            QRScanScreen(isTab: true, isActive: _selectedIndex == 2),
+            const ScheduleTabbar(),
+            const ProfileTabbar(),
+          ],
         ),
         bottomNavigationBar: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,

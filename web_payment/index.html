@@ -3,38 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <title>ANPAY - Thanh toán nhanh</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f2f5; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 90%; max-width: 400px; text-align: center; }
-        .logo { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #333; }
-        .logo span { color: #e53935; }
-        #recipientName { color: #6200ee; margin: 10px 0; font-size: 22px; }
-        input { width: 100%; padding: 15px; margin: 20px 0; border: 2px solid #eee; border-radius: 12px; font-size: 20px; box-sizing: border-box; outline: none; }
-        button { width: 100%; padding: 15px; background: #e53935; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        button:disabled { background: #ccc; }
-        .success-box { display: none; color: #4caf50; }
+        :root {
+            --primary-color: #9c27b0; /* Màu Tím ANPAY */
+            --bg-color: #f8f9fa;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: var(--bg-color);
+        }
+        .card {
+            background: white;
+            padding: 40px 24px;
+            border-radius: 28px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 420px;
+            text-align: center;
+            position: relative;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 24px;
+            letter-spacing: 1px;
+        }
+        .logo span.an { color: var(--primary-color); }
+        .logo span.pay { color: #333; }
+
+        .info-container {
+            background: #fdf7ff;
+            padding: 24px 16px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+            border: 1px solid #f3e5f5;
+        }
+        .label { color: #757575; font-size: 14px; margin-bottom: 10px; font-weight: 500; }
+        #recipientName {
+            color: #333;
+            margin: 0;
+            font-size: 22px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .input-group { text-align: left; margin-bottom: 30px; }
+        input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #eee;
+            border-radius: 16px;
+            font-size: 32px;
+            font-weight: 700;
+            box-sizing: border-box;
+            outline: none;
+            transition: all 0.3s;
+            text-align: center;
+            color: var(--primary-color);
+        }
+        input:focus { border-color: var(--primary-color); background: #fdf7ff; box-shadow: 0 0 0 4px rgba(156, 39, 176, 0.1); }
+
+        button {
+            width: 100%;
+            padding: 20px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 18px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 6px 20px rgba(156, 39, 176, 0.3);
+            text-transform: uppercase;
+        }
+        button:active { transform: scale(0.98); }
+        button:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
+
+        .success-box { display: none; }
+        .success-icon {
+            width: 80px; height: 80px;
+            background: #e8f5e9; color: #4caf50;
+            border-radius: 50%; display: flex;
+            align-items: center; justify-content: center;
+            font-size: 40px; margin: 0 auto 20px;
+        }
+        .footer { margin-top: 40px; color: #bbb; font-size: 12px; }
+
+        /* Hiệu ứng mờ khi tải */
+        .loading { opacity: 0.6; pointer-events: none; }
     </style>
 </head>
 <body>
     <div class="card" id="mainCard">
-        <div class="logo">AN<span>PAY</span></div>
-        <p>Thanh toán cho</p>
-        <h3 id="recipientName">Đang tải...</h3>
-        <input type="number" id="amount" placeholder="Nhập số tiền (VNĐ)">
-        <button id="payBtn">XÁC NHẬN THANH TOÁN</button>
+        <div class="logo"><span class="an">AN</span><span class="pay">PAY</span></div>
+
+        <div class="info-container">
+            <div class="label">THANH TOÁN ĐẾN</div>
+            <h3 id="recipientName">ĐANG TẢI...</h3>
+        </div>
+
+        <div class="input-group">
+            <div class="label" style="text-align: center;">NHẬP SỐ TIỀN (VNĐ)</div>
+            <input type="number" id="amount" placeholder="0" autofocus>
+        </div>
+
+        <button id="payBtn">Xác nhận thanh toán</button>
+
+        <div class="footer">Hệ thống thanh toán an toàn ANPAY &copy; 2024</div>
     </div>
 
     <div class="card success-box" id="successCard">
-        <div style="font-size: 60px;">✓</div>
-        <h3>Thành công!</h3>
-        <p id="resultText"></p>
+        <div class="success-icon">✓</div>
+        <h2 style="margin: 0 0 10px 0; color: #333;">Thành công!</h2>
+        <p id="resultText" style="color: #666; line-height: 1.6; font-size: 16px;"></p>
+        <button onclick="location.reload()" style="background: #f5f5f5; color: #666; margin-top: 24px; box-shadow: none; text-transform: none;">Thực hiện giao dịch khác</button>
     </div>
 
     <script>
-        // Cấu hình lấy trực tiếp từ lib/firebase_options.dart của bạn
         const firebaseConfig = {
             apiKey: "AIzaSyC0n0_CrtjtqTClXA-JvcjYZ-vlZcrGBuE",
             authDomain: "app-do-an-ae40f.firebaseapp.com",
@@ -53,33 +147,50 @@
         document.getElementById('recipientName').innerText = name;
 
         document.getElementById('payBtn').onclick = async () => {
-            const amount = parseInt(document.getElementById('amount').value);
-            if (!amount || amount < 1000) return alert("Tối thiểu 1.000đ");
+            const amountInput = document.getElementById('amount');
+            const amount = parseInt(amountInput.value);
 
-            document.getElementById('payBtn').disabled = true;
-            document.getElementById('payBtn').innerText = "ĐANG XỬ LÝ...";
+            if (!uid) return alert("Lỗi: Không tìm thấy ID người nhận!");
+            if (!amount || amount < 1000) return alert("Vui lòng nhập số tiền từ 1.000đ trở lên");
+
+            const btn = document.getElementById('payBtn');
+            const mainCard = document.getElementById('mainCard');
+
+            btn.disabled = true;
+            btn.innerText = "ĐANG XỬ LÝ...";
+            mainCard.classList.add('loading');
 
             try {
                 const userRef = db.collection('users').doc(uid);
+
                 await db.runTransaction(async (t) => {
                     const doc = await t.get(userRef);
-                    const newBal = (doc.data().balance || 0) + amount;
-                    t.update(userRef, { balance: newBal });
+                    if (!doc.exists) throw new Error("Tài khoản người nhận không tồn tại!");
+
+                    const newBalance = (doc.data().balance || 0) + amount;
+                    t.update(userRef, { balance: newBalance });
                 });
 
+                // Thêm lịch sử giao dịch
                 await userRef.collection('transactions').add({
-                    title: "Nhận tiền từ Web QR",
+                    title: "Nhận tiền qua Web QR",
                     amount: amount,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    displayTime: new Date().toLocaleString('vi-VN')
+                    displayTime: new Date().toLocaleString('vi-VN', {
+                        hour: '2-digit', minute: '2-digit',
+                        day: '2-digit', month: '2-digit', year: 'numeric'
+                    })
                 });
 
                 document.getElementById('mainCard').style.display = 'none';
                 document.getElementById('successCard').style.display = 'block';
-                document.getElementById('resultText').innerText = "Đã chuyển " + amount.toLocaleString() + "đ cho " + name;
+                document.getElementById('resultText').innerHTML = `Đã chuyển thành công <br><b style="font-size: 24px; color: var(--primary-color);">${amount.toLocaleString()}đ</b><br>đến <b>${name}</b>`;
+
             } catch (e) {
-                alert("Lỗi: " + e.message);
-                document.getElementById('payBtn').disabled = false;
+                alert("Giao dịch thất bại: " + e.message);
+                btn.disabled = false;
+                btn.innerText = "XÁC NHẬN THANH TOÁN";
+                mainCard.classList.remove('loading');
             }
         };
     </script>

@@ -1,7 +1,6 @@
-import 'package:app_do_an/navigator/navigator_screen/tabbar_screen.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MainScreen extends StatefulWidget {
@@ -13,73 +12,68 @@ class MainScreen extends StatefulWidget {
 }
 
 class _StateMainScreen extends State<MainScreen> {
-  
-
   @override
   Widget build(BuildContext context){
-
     return PopScope(
       canPop: true, 
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
-          Navigator.of(context).pop(); // Quay về WelcomeScreen
+          Navigator.of(context).pop(); 
         }
       },
-      
-        child: Scaffold(
-          resizeToAvoidBottomInset: false,
-          body: SafeArea(
-            child: Padding(
-              padding: EdgeInsets.all(24.0),
-              child: Column(
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Phan anh tren cung
-                Container(
+                const SizedBox(height: 20),
+                SizedBox(
                   height: MediaQuery.of(context).size.height * 0.4,
                   width: double.infinity,
                   child: Image.asset("assets/images/AnPay.png"),
                 ),
 
-                // Phan Text o duoi
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   "Welcome to AnPay".tr(),
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, fontFamily: "Poppins"),
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, fontFamily: "Poppins"),
                 ),
-                Text("You are all set now, let’s reach your".tr(), style: TextStyle(color: Colors.grey, fontSize: 12, fontFamily: "Poppins", fontWeight: FontWeight.w400),),
-                Text("money together with us".tr(), style: TextStyle(color: Colors.grey, fontSize: 12, fontFamily: "Poppins", fontWeight: FontWeight.w400),),
-                Spacer(),
+                const SizedBox(height: 8),
+                Text("You are all set now, let’s reach your".tr(), style: const TextStyle(color: Colors.grey, fontSize: 13, fontFamily: "Poppins"),),
+                Text("money together with us".tr(), style: const TextStyle(color: Colors.grey, fontSize: 13, fontFamily: "Poppins"),),
+                const Spacer(),
 
-                // Button Go to home
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
+                  height: 52,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blueAccent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      elevation: 0,
                     ),
                     onPressed: () async {
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('isLoggedIn', true);
-                      Navigator.push(context, CupertinoPageRoute(builder: (_) => TabbarScreen()));
+                      
+                      // 🔹 Chuyển vào Tabbar bằng GoRouter
+                      if (mounted) context.go('/tabbar');
                     },
-                    child: Text("Go to home".tr(), style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: "Poppins"))
+                    child: Text("Go to home".tr(), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: "Poppins"))
                   ),
                 ),
+                const SizedBox(height: 20),
               ],
             ),
           ),
         ),
-      )
+      ),
     );
   }
 }
-
-
-
-

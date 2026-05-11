@@ -1,4 +1,5 @@
 import 'package:app_do_an/navigator/router/router.dart';
+import 'package:app_do_an/navigator/service/notification_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Khởi tạo dịch vụ thông báo
+  await NotificationService.init();
 
   // Luôn signOut khi mở app
   await FirebaseAuth.instance.signOut();
@@ -70,4 +74,8 @@ class MyApp extends StatelessWidget {
 
 // Gọi api để gửi mã otp
 // .\ngrok.exe http 5001
+
+//Lệnh run ngrok
+// firebase emulators:start --only functions
+// npx ngrok http 127.0.0.1:5001
 

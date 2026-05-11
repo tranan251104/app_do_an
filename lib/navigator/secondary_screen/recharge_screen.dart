@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_do_an/navigator/model/transaction.dart' as AppModel;
 import 'package:app_do_an/navigator/service/transaction_storage.dart';
+import 'package:app_do_an/navigator/service/notification_service.dart';
+import 'package:app_do_an/navigator/service/otp.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -115,6 +117,10 @@ class _RechargeScreenState extends State<RechargeScreen> {
       // GIẢ LẬP: Chờ 2 giây để mô phỏng quá trình xử lý nạp tiền
       await Future.delayed(const Duration(seconds: 2));
 
+      final user = FirebaseAuth.instance.currentUser;
+      final prefs = await SharedPreferences.getInstance();
+      final userEmail = prefs.getString('user_email') ?? user?.email;
+
       // Cập nhật số dư Firestore
       await _updateFirestoreBalance(_amount);
       
@@ -123,14 +129,33 @@ class _RechargeScreenState extends State<RechargeScreen> {
       await _saveBalance(newBalance);
 
       // Lưu lịch sử giao dịch
-      final now = DateFormat("HH:mm dd/MM").format(DateTime.now());
+      final nowFormatted = DateFormat("HH:mm dd/MM/yyyy").format(DateTime.now());
       await TransactionStorage.addTransaction(
         AppModel.Transaction(
           title: "Nạp tiền (Demo)",
           amount: _amount,
-          time: now,
+          time: nowFormatted,
         ),
       );
+
+      // 1. Gửi thông báo Notification
+      await NotificationService.showNotification(
+        id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title: "Biến động số dư",
+        body: "Tài khoản ANPAY của bạn vừa được cộng ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(_amount)} từ $_paymentMethod. Số dư: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(newBalance)}",
+      );
+
+      // 2. Gửi Email thông báo (nếu có email)
+      if (userEmail != null && userEmail.isNotEmpty) {
+        await OtpService.sendTransactionEmail(
+          email: userEmail,
+          type: "recharge",
+          amount: _amount,
+          balance: newBalance,
+          note: "Nạp tiền qua $_paymentMethod",
+          time: nowFormatted,
+        );
+      }
 
       if (!mounted) return;
       setState(() {
