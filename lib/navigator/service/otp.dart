@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class OtpService {
-  static const String baseUrl = "https://d865-2402-800-f2e6-e812-d094-616e-5114-c3ae.ngrok-free.app/app-do-an-ae40f/us-central1";
+  static const String baseUrl = "https://f8a3-2402-800-bb26-fc8a-95b4-bfe8-eca3-e723.ngrok-free.app/app-do-an-ae40f/us-central1";
 
   static Future<void> sendOtp(String email) async {
     try {

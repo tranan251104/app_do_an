@@ -4,7 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_do_an/navigator/fourth_screen/transfer_money_form_screen.dart';
 import 'package:app_do_an/navigator/model/payment_account.dart';
-import 'package:app_do_an/navigator/service/scanner_service.dart'; // 👈 Import service
+import 'package:app_do_an/navigator/service/scanner_service.dart';
 
 class QRScanScreen extends StatefulWidget {
   final bool isTab;
@@ -21,16 +21,18 @@ class QRScanScreen extends StatefulWidget {
 }
 
 class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver {
-  // 🔹 Sử dụng chung một bộ điều khiển duy nhất
   MobileScannerController get _controller => ScannerService.instance;
   
+  // 🔹 STATIC LOCK: Ngăn chặn tuyệt đối việc push 2 lần
+  static bool _isGlobalProcessing = false;
+  
   bool _isScanned = false;
+  bool _isCooldown = false; 
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
     if (widget.isActive) {
       _startScanner();
     }
@@ -49,6 +51,7 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
   }
 
   Future<void> _startScanner() async {
+    if (!widget.isActive) return;
     await ScannerService.start();
   }
 
@@ -59,7 +62,7 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    // ⚠️ Không dispose controller ở đây vì nó là singleton dùng chung
+    // Chỉ stop camera khi widget bị hủy hoàn toàn khỏi widget tree
     _stopScanner();
     super.dispose();
   }
@@ -69,7 +72,7 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
     if (!widget.isActive) return;
     if (state == AppLifecycleState.resumed) {
       _startScanner();
-    } else {
+    } else if (state == AppLifecycleState.paused) {
       _stopScanner();
     }
   }
@@ -79,8 +82,10 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
     super.didChangeDependencies();
     final route = ModalRoute.of(context);
     if (route != null) {
-      // Nếu màn hình này không còn là màn hình chính (ví dụ bị Navigator.push đè lên)
-      if (route.isCurrent && widget.isActive) {
+      // 🔹 SỬA LỖI MÀN HÌNH ĐEN: 
+      // Không dừng camera khi Navigator.push (màn hình khác đè lên).
+      // Chỉ dừng camera khi người dùng chuyển sang Tab khác (isActive = false).
+      if (widget.isActive) {
         _startScanner();
       } else {
         _stopScanner();
@@ -89,30 +94,25 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
   }
 
   void _handleScan(String code) async {
-    if (_isScanned) return;
+    // Kiểm tra cờ chặn
+    if (_isGlobalProcessing || _isScanned || _isCooldown || !mounted) return;
+    
+    _isGlobalProcessing = true; 
     setState(() => _isScanned = true);
-    await _stopScanner();
-
-    if (!mounted) return;
+    
+    // 🔹 CHIẾN THUẬT: Giữ camera chạy ngầm để khi quay lại không bị đen và treo driver.
 
     if (code.contains("app-do-an-ae40f.web.app")) {
       final uri = Uri.parse(code);
       final targetUid = uri.queryParameters['uid'] ?? "";
       final targetName = Uri.decodeComponent(uri.queryParameters['name'] ?? "Người nhận ANPAY");
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TransferMoneyFormScreen(
-            account: PaymentAccount(
-              accountNumber: targetUid,
-              name: targetName,
-              provider: "ANPAY Internal",
-              isService: false,
-            ),
-          ),
-        ),
-      ).then((_) => _resumeScanner());
+      _navigateToTransfer(PaymentAccount(
+        accountNumber: targetUid,
+        name: targetName,
+        provider: "ANPAY Internal",
+        isService: false,
+      ));
     } else if (code.startsWith("000201")) {
       _processVietQR(code);
     } else if (code.startsWith("http")) {
@@ -130,31 +130,56 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
     if (qrCode.contains("970422")) bankName = "MB Bank";
     else if (qrCode.contains("970436")) bankName = "Vietcombank";
 
+    _navigateToTransfer(PaymentAccount.fromBank(
+      bankName: bankName,
+      accountNumber: "88889999123",
+      ownerName: "NGUYEN VAN DEMO",
+    ));
+  }
+
+  void _navigateToTransfer(PaymentAccount account) {
+    if (!mounted) {
+      _isGlobalProcessing = false;
+      return;
+    }
+    
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => TransferMoneyFormScreen(
-          account: PaymentAccount.fromBank(
-            bankName: bankName,
-            accountNumber: "88889999123",
-            ownerName: "NGUYEN VAN DEMO",
-          ),
-        ),
+        builder: (_) => TransferMoneyFormScreen(account: account),
       ),
-    ).then((_) => _resumeScanner());
+    ).then((_) => _resumeScanner()); 
   }
 
   void _resumeScanner() {
+    _isGlobalProcessing = false;
+
     if (mounted) {
-      setState(() => _isScanned = false);
+      setState(() {
+        _isScanned = false;
+        _isCooldown = true;     
+      });
+      
+      // Đảm bảo camera vẫn hoạt động
       if (widget.isActive) _startScanner();
+
+      // Sau 2.5 giây mới cho phép quét mã tiếp theo để tránh trùng lặp mã vừa quét
+      Future.delayed(const Duration(milliseconds: 2500), () {
+        if (mounted) {
+          setState(() => _isCooldown = false);
+        }
+      });
     }
   }
 
   void _showResultDialog(String text) {
-    if (!mounted) return;
+    if (!mounted) {
+      _isGlobalProcessing = false;
+      return;
+    }
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text("Thông tin QR"),
         content: Text(text),
@@ -183,15 +208,22 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
             controller: _controller,
             fit: BoxFit.cover,
             onDetect: (capture) {
+              // Kiểm tra tất cả các cờ chặn trước khi xử lý
+              if (_isGlobalProcessing || _isScanned || _isCooldown) return;
+              
               for (final barcode in capture.barcodes) {
                 if (barcode.rawValue != null) {
                   _handleScan(barcode.rawValue!);
-                  break;
+                  break; 
                 }
               }
             },
-            placeholderBuilder: (context, child) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+            placeholderBuilder: (context, child) => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
           ),
+          
+          // Khung quét trang trí
           Center(
             child: Container(
               width: 260, height: 260,
@@ -204,6 +236,8 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
               ),
             ),
           ),
+
+          // Hiệu ứng Loading khi đang chuyển màn hình
           if (_isScanned)
             Container(
               color: Colors.black45,
