@@ -1,24 +1,31 @@
-import 'package:flutter/material.dart';
-import 'package:pin_code_fields/pin_code_fields.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:app_do_an/navigator/service/otp.dart';
-import 'package:app_do_an/navigator/model/payment_account.dart';
+import 'package:app_do_an/core/app_services.dart';
+import 'package:app_do_an/core/logging/app_logger.dart';
+import 'package:app_do_an/core/network/api_exception.dart';
 import 'package:app_do_an/navigator/fourth_screen/result_screen.dart';
-import 'package:app_do_an/navigator/service/notification_service.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pin_code_fields/pin_code_fields.dart';
 
 class OtpConfirmScreen extends StatefulWidget {
-  final String email;
-  final PaymentAccount account;
+  final String transferId;
+  final String reference;
+  final String receiverName;
+  final String receiverWalletCode;
   final int amount;
+  final DateTime? expiresAt;
+  final bool external;
+  final String? bankName;
 
   const OtpConfirmScreen({
     super.key,
-    required this.email,
-    required this.account,
+    required this.transferId,
+    required this.reference,
+    required this.receiverName,
+    required this.receiverWalletCode,
     required this.amount,
+    this.expiresAt,
+    this.external = false,
+    this.bankName,
   });
 
   @override
@@ -26,142 +33,241 @@ class OtpConfirmScreen extends StatefulWidget {
 }
 
 class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
-  String _enteredOtp = "";
+  String _enteredOtp = '';
   bool _loading = false;
+  bool _resending = false;
+
+  String get _tag => widget.external ? 'EXTERNAL_TRANSFER_UI' : 'TRANSFER_UI';
 
   Future<void> _verifyOtp() async {
-    if (_enteredOtp.length < 6) return;
+    AppLogger.action(
+      widget.external
+          ? 'EXTERNAL_TRANSFER: CONFIRM OTP button pressed'
+          : 'TRANSFER: CONFIRM OTP button pressed',
+      {
+        'transferId': AppLogger.mask(widget.transferId),
+        'otpLength': _enteredOtp.length,
+      },
+    );
+
+    if (_enteredOtp.length != 6 || _loading) {
+      AppLogger.warning(_tag, 'OTP confirm ignored', {
+        'otpLength': _enteredOtp.length,
+        'loading': _loading,
+      });
+      return;
+    }
+
     setState(() => _loading = true);
     try {
-      final ok = await OtpService.verifyOtp(widget.email, _enteredOtp);
-      if (!ok) {
-        if (mounted) {
-          setState(() => _loading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("❌ Sai mã OTP, vui lòng thử lại")),
-          );
-        }
+      AppLogger.repo(
+        _tag,
+        widget.external
+            ? 'Calling TransferRepository.confirmExternal'
+            : 'Calling TransferRepository.confirm',
+      );
+
+      final result = widget.external
+          ? await AppServices.transfer.confirmExternal(
+              widget.transferId,
+              _enteredOtp,
+            )
+          : await AppServices.transfer.confirm(widget.transferId, _enteredOtp);
+
+      final status = result['status']?.toString() ?? '';
+      if (status != 'COMPLETED') {
+        AppLogger.warning(
+          _tag,
+          'Transfer confirm returned non-completed status',
+          {'status': status},
+        );
+        _show('Giao dịch chưa hoàn tất: $status');
         return;
       }
-      await _handleSuccessTransaction(widget.amount);
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("❌ Lỗi: $e")));
+
+      AppLogger.success(_tag, 'Transfer completed; opening result screen', {
+        'status': status,
+        'amount': result['amount'],
+        'bank': result['bankName']?.toString(),
+      });
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TransactionResultScreen(
+            bankName: widget.external
+                ? (result['bankName']?.toString() ??
+                      widget.bankName ??
+                      'Ngân hàng')
+                : 'ANPAY',
+            accountName: widget.external
+                ? (result['accountName']?.toString() ?? widget.receiverName)
+                : (result['receiverDisplayName']?.toString() ??
+                      widget.receiverName),
+            amount: (result['amount'] as num?)?.toInt() ?? widget.amount,
+            time: DateFormat('HH:mm dd/MM/yyyy').format(DateTime.now()),
+            isSimulation: widget.external,
+            providerReference: result['providerReference']?.toString(),
+          ),
+        ),
+      );
+    } on ApiException catch (e, stackTrace) {
+      AppLogger.error(
+        _tag,
+        'OTP confirmation failed',
+        error: e,
+        stackTrace: stackTrace,
+        data: {'code': e.code, 'status': e.statusCode},
+      );
+      _show(e.message);
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        _tag,
+        'OTP confirmation failed unexpectedly',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      _show('Không thể xác nhận giao dịch: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _handleSuccessTransaction(int amount) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+  Future<void> _resendOtp() async {
+    AppLogger.action(
+      widget.external
+          ? 'EXTERNAL_TRANSFER: RESEND OTP button pressed'
+          : 'TRANSFER: RESEND OTP button pressed',
+      {'transferId': AppLogger.mask(widget.transferId)},
+    );
+    if (_resending) return;
 
-    final db = FirebaseFirestore.instance;
-    final nowFormatted = DateFormat("HH:mm dd/MM/yyyy").format(DateTime.now());
-    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
-
-    int senderNewBalance = 0;
-    String? receiverEmail;
-    int receiverNewBalance = 0;
-
+    setState(() => _resending = true);
     try {
-      await db.runTransaction((tx) async {
-        // 1. Cập nhật số dư người chuyển
-        final senderDoc = await tx.get(db.collection('users').doc(user.uid));
-        senderNewBalance = (senderDoc.data()?['balance'] ?? 0) - amount;
-        tx.update(db.collection('users').doc(user.uid), {'balance': senderNewBalance});
-
-        // 2. Nếu là chuyển nội bộ ANPAY, cập nhật số dư người nhận
-        if (widget.account.provider.contains("ANPAY")) {
-          final receiverDoc = await tx.get(db.collection('users').doc(widget.account.accountNumber));
-          if (receiverDoc.exists) {
-            receiverEmail = receiverDoc.data()?['email'];
-            receiverNewBalance = (receiverDoc.data()?['balance'] ?? 0) + amount;
-            tx.update(db.collection('users').doc(widget.account.accountNumber), {'balance': receiverNewBalance});
-            
-            // Lưu lịch sử cho người nhận
-            tx.set(db.collection('users').doc(widget.account.accountNumber).collection('transactions').doc(), {
-              'title': "Nhận tiền từ ${senderDoc.data()?['name'] ?? 'Người dùng ANPAY'}",
-              'amount': amount,
-              'createdAt': FieldValue.serverTimestamp(),
-              'displayTime': nowFormatted,
-            });
-          }
-        }
-      });
-
-      // Lưu lịch sử local & firestore cho người chuyển
-      await db.collection('users').doc(user.uid).collection('transactions').add({
-        'title': "Chuyển tiền tới ${widget.account.name}",
-        'amount': -amount,
-        'createdAt': FieldValue.serverTimestamp(),
-        'displayTime': nowFormatted,
-      });
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt("wallet_balance", senderNewBalance);
-
-      // --- GỬI THÔNG BÁO & EMAIL CHO NGƯỜI CHUYỂN ---
-      await NotificationService.showNotification(
-        id: 1,
-        title: "Biến động số dư",
-        body: "TK ANPAY vừa trừ ${currencyFormat.format(amount)}. Số dư: ${currencyFormat.format(senderNewBalance)}",
-      );
-
-      await OtpService.sendTransactionEmail(
-        email: widget.email,
-        type: "transfer",
-        amount: amount,
-        balance: senderNewBalance,
-        note: "Chuyển tiền tới ${widget.account.name}",
-        time: nowFormatted,
-      );
-
-      // --- GỬI EMAIL CHO NGƯỜI NHẬN (NẾU CÓ) ---
-      if (receiverEmail != null) {
-        await OtpService.sendTransactionEmail(
-          email: receiverEmail!,
-          type: "receive",
-          amount: amount,
-          balance: receiverNewBalance,
-          note: "Nhận tiền từ người dùng ANPAY",
-          time: nowFormatted,
-        );
+      if (widget.external) {
+        await AppServices.transfer.resendExternalOtp(widget.transferId);
+      } else {
+        await AppServices.transfer.resendOtp(widget.transferId);
       }
-
-      if (!mounted) return;
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => TransactionResultScreen(
-        bankName: widget.account.provider,
-        accountName: widget.account.name,
-        amount: amount,
-        time: nowFormatted,
-        isServiceTransaction: widget.account.isService,
-      )));
-
-    } catch (e) {
-      throw Exception("Giao dịch thất bại: $e");
+      AppLogger.success(_tag, 'Resend OTP request completed');
+      _show('Đã yêu cầu gửi lại OTP');
+    } on ApiException catch (e, stackTrace) {
+      AppLogger.error(
+        _tag,
+        'Resend OTP failed',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      _show(e.message);
+    } finally {
+      if (mounted) setState(() => _resending = false);
     }
+  }
+
+  void _show(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
+    final expiresText = widget.expiresAt == null
+        ? null
+        : DateFormat('HH:mm:ss').format(widget.expiresAt!.toLocal());
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Xác nhận OTP")),
-      body: Padding(
+      appBar: AppBar(
+        title: Text(
+          widget.external ? 'Xác nhận chuyển ngân hàng' : 'Xác nhận OTP',
+        ),
+      ),
+      body: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const Text("Nhập mã xác thực để hoàn tất chuyển tiền", textAlign: TextAlign.center),
+            if (widget.external)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 18),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'MÔ PHỎNG: OTP đúng sẽ làm Backend trừ tiền khỏi ví AnPay demo. Không có tiền thật được chuyển tới ngân hàng.',
+                  style: TextStyle(
+                    color: Colors.deepPurple,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            Text(
+              widget.external
+                  ? 'Nhập OTP để Backend xác nhận giao dịch ngân hàng mô phỏng'
+                  : 'Nhập mã xác thực để backend hoàn tất giao dịch chuyển tiền',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            if (widget.external && widget.bankName != null)
+              Text(
+                widget.bankName!,
+                style: const TextStyle(
+                  color: Colors.deepPurple,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            Text(
+              '${widget.receiverName} · ${widget.receiverWalletCode}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            if (widget.reference.isNotEmpty)
+              Text(
+                'Mã GD: ${widget.reference}',
+                style: const TextStyle(color: Colors.grey),
+              ),
+            if (expiresText != null)
+              Text(
+                'OTP hết hạn lúc $expiresText',
+                style: const TextStyle(color: Colors.grey),
+              ),
             const SizedBox(height: 32),
             PinCodeTextField(
-              appContext: context, length: 6,
-              onChanged: (v) => _enteredOtp = v,
-              pinTheme: PinTheme(shape: PinCodeFieldShape.box, borderRadius: BorderRadius.circular(12)),
+              appContext: context,
+              length: 6,
+              keyboardType: TextInputType.number,
+              onChanged: (value) => setState(() => _enteredOtp = value),
+              pinTheme: PinTheme(
+                shape: PinCodeFieldShape.box,
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
+            TextButton(
+              onPressed: _resending ? null : _resendOtp,
+              child: Text(_resending ? 'Đang gửi lại...' : 'Gửi lại OTP'),
+            ),
+            const SizedBox(height: 12),
             ElevatedButton(
-              onPressed: !_loading ? _verifyOtp : null,
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 55)),
-              child: _loading ? const CircularProgressIndicator() : const Text("XÁC NHẬN CHUYỂN TIỀN"),
+              onPressed: _enteredOtp.length == 6 && !_loading
+                  ? _verifyOtp
+                  : null,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 55),
+              ),
+              child: _loading
+                  ? const CircularProgressIndicator()
+                  : Text(
+                      widget.external
+                          ? 'XÁC NHẬN MÔ PHỎNG'
+                          : 'XÁC NHẬN CHUYỂN TIỀN',
+                    ),
             ),
           ],
         ),

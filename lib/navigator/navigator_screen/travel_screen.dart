@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:app_do_an/navigator/secondary_screen/transtation/generic_travel_search_screen.dart';
 
@@ -34,6 +35,7 @@ class TravelScreen extends StatelessWidget {
           final service = travelServices[index];
           return InkWell(
             onTap: () {
+              AppLogger.action('TRAVEL service selected', {'label': service['label'], 'type': service['type']});
               Navigator.push(
                 context,
                 MaterialPageRoute(

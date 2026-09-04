@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -59,6 +60,7 @@ class _StateMainScreen extends State<MainScreen> {
                       elevation: 0,
                     ),
                     onPressed: () async {
+                      AppLogger.action('WELCOME go to home pressed', {'fromLogin': widget.fromLogin});
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('isLoggedIn', true);
                       

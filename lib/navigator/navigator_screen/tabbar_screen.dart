@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:app_do_an/navigator/navigator_tabbar/home_tabbar.dart';
 import 'package:app_do_an/navigator/navigator_tabbar/profile_tabbar.dart';
 import 'package:app_do_an/navigator/navigator_tabbar/schedule_tabbar.dart';
@@ -15,11 +16,18 @@ class TabbarScreen extends StatefulWidget {
 
 class _TabbarScreenState extends State<TabbarScreen> {
   int _selectedIndex = 0;
+  final GlobalKey<ScheduleTabbarState> _historyKey = GlobalKey<ScheduleTabbarState>();
 
   void _onItemTapped(int index) {
+    AppLogger.action('MAIN TAB pressed', {'index': index});
     setState(() {
       _selectedIndex = index;
     });
+    if (index == 3) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _historyKey.currentState?.refreshFromOutside();
+      });
+    }
   }
 
   @override
@@ -39,7 +47,7 @@ class _TabbarScreenState extends State<TabbarScreen> {
             const TopUpTabbar(),
             // 🔹 Chỉ hiện màn hình quét QR ở Tab chính
             QRScanScreen(isTab: true, isActive: _selectedIndex == 2),
-            const ScheduleTabbar(),
+            ScheduleTabbar(key: _historyKey),
             const ProfileTabbar(),
           ],
         ),

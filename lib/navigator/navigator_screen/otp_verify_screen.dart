@@ -1,15 +1,15 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
+import 'package:app_do_an/core/app_services.dart';
+import 'package:app_do_an/core/network/api_exception.dart';
+import 'package:app_do_an/navigator/navigator_screen/forgot_password_screen.dart';
+import 'package:app_do_an/navigator/navigator_screen/reset_password_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'change_password_screen.dart';
-import 'reset_password_screen.dart';
-import 'forgot_password_screen.dart';
-import 'package:app_do_an/navigator/service/otp.dart';
 
 class OtpVerifyScreen extends StatefulWidget {
-  final String identifier; // Email hoặc Số điện thoại
+  final String identifier;
   final bool isPhoneMode;
-  final String? verificationId; // Bắt buộc nếu là Phone Mode
+  final String? verificationId;
   final PasswordFlowMode mode;
 
   const OtpVerifyScreen({
@@ -18,92 +18,75 @@ class OtpVerifyScreen extends StatefulWidget {
     this.isPhoneMode = false,
     this.verificationId,
     this.mode = PasswordFlowMode.forgot,
-  }) : assert(!isPhoneMode || verificationId != null, "Phone mode requires verificationId");
+  });
 
   @override
   State<OtpVerifyScreen> createState() => _OtpVerifyScreenState();
 }
 
 class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
-  String _enteredOtp = "";
+  String _enteredOtp = '';
   bool _loading = false;
 
   Future<void> _verifyOtp() async {
+    AppLogger.action('AUTH OTP verify button pressed', {
+      'otpLength': _enteredOtp.length,
+    });
+    if (_enteredOtp.length != 6) return;
     setState(() => _loading = true);
-
     try {
-      bool isSuccess = false;
-
-      if (widget.isPhoneMode) {
-        // Xác thực qua Firebase cho Số điện thoại
-        final credential = PhoneAuthProvider.credential(
-          verificationId: widget.verificationId!,
-          smsCode: _enteredOtp,
-        );
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        isSuccess = true;
-      } else {
-        // Xác thực qua OtpService cho Email
-        isSuccess = await OtpService.verifyOtp(widget.identifier, _enteredOtp);
-      }
-
-      if (isSuccess) {
-        if (!mounted) return;
-        if (widget.mode == PasswordFlowMode.forgot) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ResetPasswordScreen(email: widget.identifier),
-            ),
-          );
-        } else if (widget.mode == PasswordFlowMode.change) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ChangePasswordScreen(email: widget.identifier),
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("❌ Sai OTP, vui lòng thử lại")),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("❌ Lỗi: ${e.toString()}")),
+      if (widget.mode != PasswordFlowMode.forgot) {
+        throw const ApiException(
+          code: 'UNSUPPORTED_FLOW',
+          message:
+              'Đổi mật khẩu không cần OTP. Hãy nhập mật khẩu hiện tại trong mục Đổi mật khẩu.',
         );
       }
+      final resetToken = await AppServices.auth.forgotPasswordVerify(
+        widget.identifier,
+        _enteredOtp,
+      );
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ResetPasswordScreen(resetToken: resetToken),
+        ),
+      );
+    } on ApiException catch (e) {
+      _show(e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  void _show(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Xác nhận OTP"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: Padding(
+      appBar: AppBar(title: const Text('Xác nhận OTP')),
+      body: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const Icon(Icons.security, size: 80, color: Colors.deepPurpleAccent),
+            const Icon(
+              Icons.security,
+              size: 80,
+              color: Colors.deepPurpleAccent,
+            ),
             const SizedBox(height: 24),
             Text(
-              "Mã OTP đã gửi đến ${widget.identifier}",
-              style: const TextStyle(fontSize: 16),
+              'Mã OTP đã gửi đến ${widget.identifier}',
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-
             PinCodeTextField(
               appContext: context,
               length: 6,
@@ -113,27 +96,16 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
               pinTheme: PinTheme(
                 shape: PinCodeFieldShape.box,
                 borderRadius: BorderRadius.circular(8),
-                fieldHeight: 55,
-                fieldWidth: 45,
-                activeFillColor: Colors.white,
-                activeColor: Colors.deepPurpleAccent,
-                selectedColor: Colors.deepPurple,
-                inactiveColor: Colors.grey.shade300,
               ),
             ),
-
             const SizedBox(height: 32),
-
             ElevatedButton(
-              onPressed: _enteredOtp.length == 6 && !_loading ? _verifyOtp : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurpleAccent,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+              onPressed: _enteredOtp.length == 6 && !_loading
+                  ? _verifyOtp
+                  : null,
               child: _loading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("XÁC NHẬN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ? const CircularProgressIndicator()
+                  : const Text('XÁC NHẬN'),
             ),
           ],
         ),

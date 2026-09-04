@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/fourth_screen/transfer_money_form_screen.dart';
@@ -72,7 +73,10 @@ class _GenericBillScreenState extends State<GenericBillScreen> {
                             child: Text(value),
                           );
                         }).toList(),
-                        onChanged: (val) => setState(() => _selectedProvider = val),
+                        onChanged: (val) {
+                          AppLogger.action('BILL provider selected', {'service': widget.title, 'provider': val});
+                          setState(() => _selectedProvider = val);
+                        },
                       ),
                     ),
                   ),
@@ -100,6 +104,7 @@ class _GenericBillScreenState extends State<GenericBillScreen> {
             padding: const EdgeInsets.all(16),
             child: ElevatedButton(
               onPressed: _isValid ? () {
+                AppLogger.action('BILL continue pressed', {'service': widget.title, 'provider': _selectedProvider, 'customerId': AppLogger.mask(_idController.text)});
                 Navigator.push(
                   context,
                   MaterialPageRoute(

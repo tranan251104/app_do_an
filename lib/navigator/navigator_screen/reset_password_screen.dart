@@ -1,11 +1,12 @@
-// Man hinh dat lai mat khau sau khi nhap otp
-
+import 'package:app_do_an/core/logging/app_logger.dart';
+import 'package:app_do_an/core/app_services.dart';
+import 'package:app_do_an/core/network/api_exception.dart';
 import 'package:flutter/material.dart';
-import 'package:app_do_an/navigator/service/otp.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
-  final String email;
-  const ResetPasswordScreen({super.key, required this.email});
+  final String resetToken;
+
+  const ResetPasswordScreen({super.key, required this.resetToken});
 
   @override
   State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
@@ -15,53 +16,45 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _passController = TextEditingController();
   bool _loading = false;
 
-  /// 🔹 Validate mật khẩu theo rule
   String? _validatePassword(String value) {
-    if (value.isEmpty) return "Vui lòng nhập mật khẩu";
-    if (value.length < 8) return "Mật khẩu phải có ít nhất 8 ký tự";
-    if (!RegExp(r'[a-z]').hasMatch(value)) return "Cần ít nhất 1 chữ thường";
-    if (!RegExp(r'[A-Z]').hasMatch(value)) return "Cần ít nhất 1 chữ hoa";
-    if (!RegExp(r'[0-9]').hasMatch(value)) return "Cần ít nhất 1 chữ số";
-    if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(value)) {
-      return "Cần ít nhất 1 ký tự đặc biệt";
-    }
+    if (value.length < 8) return 'Mật khẩu phải có ít nhất 8 ký tự';
     return null;
   }
 
   Future<void> _resetPassword() async {
-    final newPass = _passController.text.trim();
-
-    // ✅ Kiểm tra mật khẩu trước khi gọi API
+    AppLogger.action('RESET PASSWORD button pressed');
+    final newPass = _passController.text;
     final error = _validatePassword(newPass);
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      _show(error);
       return;
     }
-
     setState(() => _loading = true);
     try {
-      await OtpService.resetPassword(widget.email, newPass);
-
+      await AppServices.auth.forgotPasswordReset(widget.resetToken, newPass);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ Đặt lại mật khẩu thành công")),
-      );
-
-      Navigator.popUntil(context, (route) => route.isFirst); // về Login
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Lỗi: $e")),
-      );
+      _show('Đặt lại mật khẩu thành công');
+      Navigator.popUntil(context, (route) => route.isFirst);
+    } on ApiException catch (e) {
+      _show(e.message);
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _show(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Đặt lại mật khẩu")),
-      body: Padding(
+      appBar: AppBar(title: const Text('Đặt lại mật khẩu')),
+      body: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
@@ -69,7 +62,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               controller: _passController,
               obscureText: true,
               decoration: const InputDecoration(
-                labelText: "Mật khẩu mới",
+                labelText: 'Mật khẩu mới',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -77,8 +70,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             ElevatedButton(
               onPressed: _loading ? null : _resetPassword,
               child: _loading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("Đặt lại mật khẩu"),
+                  ? const CircularProgressIndicator()
+                  : const Text('Đặt lại mật khẩu'),
             ),
           ],
         ),
@@ -86,4 +79,3 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     );
   }
 }
-

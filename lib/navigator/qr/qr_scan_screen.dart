@@ -1,20 +1,18 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:app_do_an/core/logging/app_logger.dart';
+import 'package:app_do_an/core/app_services.dart';
+import 'package:app_do_an/core/network/api_exception.dart';
 import 'package:app_do_an/navigator/fourth_screen/transfer_money_form_screen.dart';
 import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/service/scanner_service.dart';
+import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class QRScanScreen extends StatefulWidget {
   final bool isTab;
   final bool isActive;
 
-  const QRScanScreen({
-    super.key,
-    this.isTab = true,
-    this.isActive = true,
-  });
+  const QRScanScreen({super.key, this.isTab = true, this.isActive = true});
 
   @override
   State<QRScanScreen> createState() => _QRScanScreenState();
@@ -22,47 +20,36 @@ class QRScanScreen extends StatefulWidget {
 
 class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver {
   MobileScannerController get _controller => ScannerService.instance;
-  
-  // 🔹 STATIC LOCK: Ngăn chặn tuyệt đối việc push 2 lần
+
   static bool _isGlobalProcessing = false;
-  
   bool _isScanned = false;
-  bool _isCooldown = false; 
+  bool _isCooldown = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    if (widget.isActive) {
-      _startScanner();
-    }
+    if (widget.isActive) _startScanner();
   }
 
   @override
   void didUpdateWidget(QRScanScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isActive != oldWidget.isActive) {
-      if (widget.isActive) {
-        _startScanner();
-      } else {
-        _stopScanner();
-      }
+      widget.isActive ? _startScanner() : _stopScanner();
     }
   }
 
   Future<void> _startScanner() async {
-    if (!widget.isActive) return;
-    await ScannerService.start();
+    AppLogger.repo('QR_SCAN', 'Start scanner');
+    if (widget.isActive) await ScannerService.start();
   }
 
-  Future<void> _stopScanner() async {
-    await ScannerService.stop();
-  }
+  Future<void> _stopScanner() => ScannerService.stop();
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    // Chỉ stop camera khi widget bị hủy hoàn toàn khỏi widget tree
     _stopScanner();
     super.dispose();
   }
@@ -77,99 +64,69 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
     }
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final route = ModalRoute.of(context);
-    if (route != null) {
-      // 🔹 SỬA LỖI MÀN HÌNH ĐEN: 
-      // Không dừng camera khi Navigator.push (màn hình khác đè lên).
-      // Chỉ dừng camera khi người dùng chuyển sang Tab khác (isActive = false).
-      if (widget.isActive) {
-        _startScanner();
-      } else {
-        _stopScanner();
-      }
-    }
-  }
-
-  void _handleScan(String code) async {
-    // Kiểm tra cờ chặn
+  Future<void> _handleScan(String code) async {
+    AppLogger.action('QR code scanned', {'codeLength': code.length});
     if (_isGlobalProcessing || _isScanned || _isCooldown || !mounted) return;
-    
-    _isGlobalProcessing = true; 
+
+    _isGlobalProcessing = true;
     setState(() => _isScanned = true);
-    
-    // 🔹 CHIẾN THUẬT: Giữ camera chạy ngầm để khi quay lại không bị đen và treo driver.
 
-    if (code.contains("app-do-an-ae40f.web.app")) {
-      final uri = Uri.parse(code);
-      final targetUid = uri.queryParameters['uid'] ?? "";
-      final targetName = Uri.decodeComponent(uri.queryParameters['name'] ?? "Người nhận ANPAY");
+    try {
+      if (code.startsWith('anpay://') || code.contains('walletCode=') || code.toUpperCase().startsWith('ANP')) {
+        final resolved = await AppServices.qr.resolve(code);
+        final canTransfer = resolved['canTransfer'] == true;
+        if (!canTransfer) throw const ApiException(code: 'WALLET_UNAVAILABLE', message: 'Ví người nhận hiện không thể nhận tiền');
 
-      _navigateToTransfer(PaymentAccount(
-        accountNumber: targetUid,
-        name: targetName,
-        provider: "ANPAY Internal",
-        isService: false,
-      ));
-    } else if (code.startsWith("000201")) {
-      _processVietQR(code);
-    } else if (code.startsWith("http")) {
-      if (await canLaunchUrl(Uri.parse(code))) {
-        await launchUrl(Uri.parse(code), mode: LaunchMode.externalApplication);
+        final account = PaymentAccount(
+          accountNumber: resolved['walletCode']?.toString() ?? '',
+          name: resolved['displayName']?.toString() ?? 'Người nhận AnPay',
+          provider: 'ANPAY Internal',
+        );
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => TransferMoneyFormScreen(account: account)),
+        );
+        _resumeScanner();
+        return;
       }
-      _resumeScanner();
-    } else {
+
+      if (code.startsWith('000201')) {
+        _showResultDialog(
+          'Đã nhận VietQR. Backend hiện chưa có API ngân hàng để xác minh tên chủ tài khoản, vì vậy AnPay không hiển thị tên giả và chưa cho phép chuyển tiền từ mã này.',
+        );
+        return;
+      }
+
+      if (code.startsWith('http')) {
+        final uri = Uri.tryParse(code);
+        if (uri != null && await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+        _resumeScanner();
+        return;
+      }
+
       _showResultDialog(code);
+    } on ApiException catch (e) {
+      _showResultDialog(e.message);
+    } catch (e) {
+      _showResultDialog('Không thể xử lý QR: $e');
     }
-  }
-
-  void _processVietQR(String qrCode) {
-    String bankName = "Ngân hàng (VietQR)";
-    if (qrCode.contains("970422")) bankName = "MB Bank";
-    else if (qrCode.contains("970436")) bankName = "Vietcombank";
-
-    _navigateToTransfer(PaymentAccount.fromBank(
-      bankName: bankName,
-      accountNumber: "88889999123",
-      ownerName: "NGUYEN VAN DEMO",
-    ));
-  }
-
-  void _navigateToTransfer(PaymentAccount account) {
-    if (!mounted) {
-      _isGlobalProcessing = false;
-      return;
-    }
-    
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => TransferMoneyFormScreen(account: account),
-      ),
-    ).then((_) => _resumeScanner()); 
   }
 
   void _resumeScanner() {
+    AppLogger.action('QR scanner resume pressed');
     _isGlobalProcessing = false;
-
-    if (mounted) {
-      setState(() {
-        _isScanned = false;
-        _isCooldown = true;     
-      });
-      
-      // Đảm bảo camera vẫn hoạt động
-      if (widget.isActive) _startScanner();
-
-      // Sau 2.5 giây mới cho phép quét mã tiếp theo để tránh trùng lặp mã vừa quét
-      Future.delayed(const Duration(milliseconds: 2500), () {
-        if (mounted) {
-          setState(() => _isCooldown = false);
-        }
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _isScanned = false;
+      _isCooldown = true;
+    });
+    if (widget.isActive) _startScanner();
+    Future.delayed(const Duration(milliseconds: 1800), () {
+      if (mounted) setState(() => _isCooldown = false);
+    });
   }
 
   void _showResultDialog(String text) {
@@ -177,17 +134,20 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
       _isGlobalProcessing = false;
       return;
     }
-    showDialog(
+    showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text("Thông tin QR"),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Thông tin QR'),
         content: Text(text),
         actions: [
           TextButton(
-            onPressed: () { Navigator.pop(context); _resumeScanner(); },
-            child: const Text("Quét tiếp"),
-          )
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _resumeScanner();
+            },
+            child: const Text('Quét tiếp'),
+          ),
         ],
       ),
     );
@@ -197,24 +157,24 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: widget.isTab ? null : AppBar(
-        title: const Text("Quét mã QR"),
-        backgroundColor: Colors.purple,
-        foregroundColor: Colors.white,
-      ),
+      appBar: widget.isTab
+          ? null
+          : AppBar(
+              title: const Text('Quét mã QR'),
+              backgroundColor: Colors.purple,
+              foregroundColor: Colors.white,
+            ),
       body: Stack(
         children: [
           MobileScanner(
             controller: _controller,
             fit: BoxFit.cover,
             onDetect: (capture) {
-              // Kiểm tra tất cả các cờ chặn trước khi xử lý
               if (_isGlobalProcessing || _isScanned || _isCooldown) return;
-              
               for (final barcode in capture.barcodes) {
                 if (barcode.rawValue != null) {
                   _handleScan(barcode.rawValue!);
-                  break; 
+                  break;
                 }
               }
             },
@@ -222,22 +182,16 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
               child: CircularProgressIndicator(color: Colors.white),
             ),
           ),
-          
-          // Khung quét trang trí
           Center(
             child: Container(
-              width: 260, height: 260,
+              width: 260,
+              height: 260,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+                border: Border.all(color: Colors.white54, width: 2),
                 borderRadius: BorderRadius.circular(24),
-              ),
-              child: Center(
-                child: Container(height: 1.5, width: 220, color: Colors.red.withOpacity(0.8)),
               ),
             ),
           ),
-
-          // Hiệu ứng Loading khi đang chuyển màn hình
           if (_isScanned)
             Container(
               color: Colors.black45,

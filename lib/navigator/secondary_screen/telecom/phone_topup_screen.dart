@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/fourth_screen/transfer_money_form_screen.dart';
@@ -73,6 +74,7 @@ class _PhoneTopupScreenState extends State<PhoneTopupScreen> {
                         label: Text("${amount ~/ 1000}K"),
                         selected: isSelected,
                         onSelected: (_) {
+                          AppLogger.action('PHONE TOPUP amount selected', {'amount': amount});
                           setState(() {
                             _selectedAmount = amount;
                             _amountController.text = amount.toString();
@@ -129,6 +131,7 @@ class _PhoneTopupScreenState extends State<PhoneTopupScreen> {
               child: ElevatedButton(
                 onPressed: isFormValid
                     ? () {
+                        AppLogger.action('PHONE TOPUP continue pressed', {'phone': AppLogger.mask(_phoneController.text)});
                         final cleanVal = _amountController.text
                             .replaceAll(RegExp(r'[^0-9]'), '');
                         final amount = int.parse(cleanVal);

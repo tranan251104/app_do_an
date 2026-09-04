@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:app_do_an/navigator/service/app_data.dart';
 import 'package:app_do_an/navigator/model/payment_account.dart';
@@ -58,6 +59,7 @@ class GenericTravelResultScreen extends StatelessWidget {
                 final trip = trips[index];
                 return InkWell(
                   onTap: () {
+                    AppLogger.action('TRAVEL trip selected', {'type': type, 'brand': trip.brand, 'price': trip.price, 'from': from, 'to': to});
                     Navigator.push(
                       context,
                       MaterialPageRoute(

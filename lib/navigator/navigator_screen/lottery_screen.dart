@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -34,6 +35,7 @@ class _LotteryScreenState extends State<LotteryScreen> {
 
   /// Random số cho tất cả vé
   void _randomNumbers() {
+    AppLogger.action('LOTTERY random numbers pressed');
     final random = Random();
     for (var ticket in _controllers) {
       for (int i = 0; i < 6; i++) {
@@ -45,6 +47,7 @@ class _LotteryScreenState extends State<LotteryScreen> {
 
   /// Xử lý mua vé
   void _buyTicket() {
+    AppLogger.action('LOTTERY buy ticket pressed');
     final totalPrice = ticketPrice * ticketCount;
 
     if (totalPrice > widget.walletBalance) {

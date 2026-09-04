@@ -1,9 +1,12 @@
 class PaymentAccount {
   final String accountNumber;
-  final String name;      // ownerName hoặc serviceName
-  final String provider;  // bankName hoặc provider (nhà cung cấp)
-  final String? detail;   // Chi tiết dịch vụ (chỉ dùng cho isService = true)
-  final bool isService;   // Để phân biệt chuyển khoản (false) và dịch vụ (true)
+  final String name;
+  final String provider;
+  final String? detail;
+  final bool isService;
+  final String? bankBin;
+  final String? bankCode;
+  final String? logoUrl;
 
   PaymentAccount({
     required this.accountNumber,
@@ -11,40 +14,53 @@ class PaymentAccount {
     required this.provider,
     this.detail,
     this.isService = false,
+    this.bankBin,
+    this.bankCode,
+    this.logoUrl,
   });
 
   Map<String, dynamic> toJson() => {
-        "accountNumber": accountNumber,
-        "name": name,
-        "provider": provider,
-        "detail": detail,
-        "isService": isService,
+        'accountNumber': accountNumber,
+        'name': name,
+        'provider': provider,
+        'detail': detail,
+        'isService': isService,
+        'bankBin': bankBin,
+        'bankCode': bankCode,
+        'logoUrl': logoUrl,
       };
 
   factory PaymentAccount.fromJson(Map<String, dynamic> json) {
     return PaymentAccount(
-      accountNumber: json["accountNumber"],
-      name: json["name"],
-      provider: json["provider"],
-      detail: json["detail"],
-      isService: json["isService"] ?? false,
+      accountNumber: json['accountNumber']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      provider: json['provider']?.toString() ?? '',
+      detail: json['detail']?.toString(),
+      isService: json['isService'] == true,
+      bankBin: json['bankBin']?.toString(),
+      bankCode: json['bankCode']?.toString(),
+      logoUrl: json['logoUrl']?.toString(),
     );
   }
 
-  // Helper để tạo từ BankAccount1 (Chuyển khoản)
   factory PaymentAccount.fromBank({
     required String bankName,
     required String accountNumber,
     required String ownerName,
+    String? bankBin,
+    String? bankCode,
+    String? logoUrl,
   }) =>
       PaymentAccount(
         accountNumber: accountNumber,
         name: ownerName,
         provider: bankName,
         isService: false,
+        bankBin: bankBin,
+        bankCode: bankCode,
+        logoUrl: logoUrl,
       );
 
-  // Helper để tạo từ BankAccount2 (Dịch vụ)
   factory PaymentAccount.fromService({
     required String serviceName,
     required String provider,

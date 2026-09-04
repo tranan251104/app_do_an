@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,8 +7,9 @@ Widget buildInput({
   required String hint,
   required TextEditingController controller,
   bool obscure = false,
-  TextInputType? keyboardType,                 // 🔹 thêm vào
-  List<TextInputFormatter>? inputFormatters,  // 🔹 thêm vào (nếu muốn giới hạn số, ký tự,…)
+  TextInputType? keyboardType, // 🔹 thêm vào
+  List<TextInputFormatter>?
+  inputFormatters, // 🔹 thêm vào (nếu muốn giới hạn số, ký tự,…)
 }) {
   return _InputField(
     icon: icon,
@@ -51,14 +53,25 @@ class _InputFieldState extends State<_InputField> {
   }
 
   @override
+  void didUpdateWidget(covariant _InputField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Conditional forms can reuse this State for another field. Always reset
+    // the visibility mode when a password field becomes a normal text field
+    // (or the other way around), otherwise a phone number may render as dots.
+    if (oldWidget.obscure != widget.obscure) {
+      _obscureText = widget.obscure;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: TextField(
         controller: widget.controller,
         obscureText: _obscureText,
-        keyboardType: widget.keyboardType,              // 🔹 thêm vào
-        inputFormatters: widget.inputFormatters,        // 🔹 thêm vào
+        keyboardType: widget.keyboardType, // 🔹 thêm vào
+        inputFormatters: widget.inputFormatters, // 🔹 thêm vào
         decoration: InputDecoration(
           prefixIcon: widget.icon,
           hintText: widget.hint,
@@ -72,6 +85,10 @@ class _InputFieldState extends State<_InputField> {
           suffixIcon: widget.obscure
               ? IconButton(
                   onPressed: () {
+                    AppLogger.action('PASSWORD visibility toggled', {
+                      'field': widget.hint,
+                      'visible': _obscureText,
+                    });
                     setState(() {
                       _obscureText = !_obscureText;
                     });
@@ -87,4 +104,3 @@ class _InputFieldState extends State<_InputField> {
     );
   }
 }
-

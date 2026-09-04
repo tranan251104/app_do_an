@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:app_do_an/navigator/secondary_screen/telecom/phone_topup_screen.dart';
 import 'package:app_do_an/navigator/secondary_screen/telecom/card_phone_topup_screen.dart';
@@ -27,7 +28,7 @@ class TelecomScreen extends StatelessWidget {
         "screen": GenericPackageScreen(
           title: "Đăng ký 3G/4G",
           providers: ["Viettel", "MobiFone", "VinaPhone"],
-          packages: AppData.dataPackages,
+          packagesByProvider: AppData.dataPackagesByProvider,
         ),
       },
       {
@@ -36,7 +37,7 @@ class TelecomScreen extends StatelessWidget {
         "screen": GenericPackageScreen(
           title: "Đăng ký Nhạc chờ",
           providers: ["Viettel iMuzik", "MobiFone FunRing"],
-          packages: AppData.musicPackages,
+          packagesByProvider: AppData.musicPackagesByProvider,
         ),
       },
       {
@@ -45,7 +46,7 @@ class TelecomScreen extends StatelessWidget {
         "screen": GenericPackageScreen(
           title: "Internet/Truyền hình",
           providers: ["FPT Play", "K+", "VieON"],
-          packages: AppData.tvPackages,
+          packagesByProvider: AppData.tvPackagesByProvider,
         ),
       },
       {
@@ -54,9 +55,7 @@ class TelecomScreen extends StatelessWidget {
         "screen": GenericPackageScreen(
           title: "Chuyển vùng quốc tế",
           providers: ["Viettel", "VinaPhone"],
-          packages: [
-            PackageModel(name: "IR_DAILY", price: 50000, description: "Data roaming 1 ngày"),
-          ],
+          packagesByProvider: AppData.roamingPackagesByProvider,
         ),
       },
     ];
@@ -79,7 +78,13 @@ class TelecomScreen extends StatelessWidget {
         itemBuilder: (context, index) {
           final item = services[index];
           return InkWell(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => item["screen"])),
+            onTap: () {
+              AppLogger.action('TELECOM service selected', {'label': item['label']});
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => item["screen"]),
+              );
+            },
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.purple.shade50,
@@ -91,7 +96,11 @@ class TelecomScreen extends StatelessWidget {
                 children: [
                   Icon(item["icon"], color: Colors.purple, size: 40),
                   const SizedBox(height: 12),
-                  Text(item["label"], textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    item["label"],
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),

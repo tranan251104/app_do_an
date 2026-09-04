@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'generic_travel_result_screen.dart';
@@ -40,6 +41,7 @@ class _GenericTravelSearchScreenState extends State<GenericTravelSearchScreen> {
               title: const Text("Ngày đi"),
               subtitle: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
               onTap: () async {
+                AppLogger.action('TRAVEL date picker pressed', {'type': widget.type});
                 final date = await showDatePicker(
                   context: context,
                   initialDate: _selectedDate,
@@ -52,6 +54,7 @@ class _GenericTravelSearchScreenState extends State<GenericTravelSearchScreen> {
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () {
+                AppLogger.action('TRAVEL search pressed', {'type': widget.type, 'from': _fromController.text, 'to': _toController.text, 'date': DateFormat('dd/MM/yyyy').format(_selectedDate)});
                 if (_fromController.text.isEmpty || _toController.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Vui lòng nhập đầy đủ điểm đi và điểm đến")),

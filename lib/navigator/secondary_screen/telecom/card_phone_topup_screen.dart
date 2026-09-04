@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/fourth_screen/transfer_money_form_screen.dart';
@@ -37,7 +38,10 @@ class _CardTopupScreenState extends State<CardTopupScreen> {
                       return ChoiceChip(
                         label: Text(p),
                         selected: isSelected,
-                        onSelected: (_) => setState(() => _selectedProvider = p),
+                        onSelected: (_) {
+                          AppLogger.action('CARD TOPUP provider selected', {'provider': p});
+                          setState(() => _selectedProvider = p);
+                        },
                         selectedColor: Colors.purple,
                         labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black),
                       );
@@ -55,7 +59,10 @@ class _CardTopupScreenState extends State<CardTopupScreen> {
                       final amt = amounts[index];
                       final isSelected = _selectedAmount == amt;
                       return InkWell(
-                        onTap: () => setState(() => _selectedAmount = amt),
+                        onTap: () {
+                          AppLogger.action('CARD TOPUP amount selected', {'amount': amt});
+                          setState(() => _selectedAmount = amt);
+                        },
                         child: Container(
                           decoration: BoxDecoration(
                             border: Border.all(color: isSelected ? Colors.purple : Colors.grey.shade300, width: 2),
@@ -77,6 +84,7 @@ class _CardTopupScreenState extends State<CardTopupScreen> {
             child: ElevatedButton(
               onPressed: (_selectedProvider != null && _selectedAmount != null && _selectedAmount! <= widget.walletBalance)
                   ? () {
+                      AppLogger.action('CARD TOPUP buy pressed', {'provider': _selectedProvider, 'amount': _selectedAmount});
                       Navigator.push(
                         context,
                         MaterialPageRoute(

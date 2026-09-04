@@ -32,6 +32,12 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+/android/build/
+/test/
+
+# Local AI assistant configuration and downloaded skills
+/.agents/
+/.claude/
 
 # Symbolication related
 app.*.symbols

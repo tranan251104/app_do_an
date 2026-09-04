@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:app_do_an/navigator/navigator_widget/language_button.dart';
 
@@ -34,6 +35,7 @@ class ButtonTabbar extends StatelessWidget
                 )
               ),                 
               onPressed: () {
+                AppLogger.action('HEADER back button pressed', {'title': title});
                 //context.pop();
               },
               child: Text("<"),                
@@ -60,7 +62,9 @@ class ButtonTabbar extends StatelessWidget
                         borderRadius: BorderRadiusGeometry.circular(6)
                       )
                     ),                 
-                    onPressed: (){}, 
+                    onPressed: () {
+                      AppLogger.action('HEADER more button pressed', {'title': title});
+                    },
                     child: Text(".."),                
                   ),
                 ),
@@ -74,7 +78,6 @@ class ButtonTabbar extends StatelessWidget
     );
   }
 }
-
 
 
 

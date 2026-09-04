@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:app_do_an/navigator/secondary_screen/bill/generic_bill_screen.dart';
 import 'package:app_do_an/navigator/service/app_data.dart';
@@ -29,6 +30,7 @@ class BillScreen extends StatelessWidget {
             elevation: 3,
             child: InkWell(
               onTap: () {
+                AppLogger.action('BILL service selected', {'label': service['label'], 'type': service['type']});
                 Navigator.push(
                   context,
                   MaterialPageRoute(

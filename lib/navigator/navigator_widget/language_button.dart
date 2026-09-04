@@ -1,3 +1,4 @@
+import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,6 +35,7 @@ class _LanguageButtonState extends State<LanguageButton> {
             leading: Image.asset("assets/images/england.jpg", height: 25, width: 25),
             title: const Text("English"),
             onTap: () async {
+              AppLogger.action('LANGUAGE selected', {'locale': 'en'});
               await context.setLocale(const Locale('en'));
               final prefs = await SharedPreferences.getInstance();
               await prefs.setString('language', 'en');
@@ -44,6 +46,7 @@ class _LanguageButtonState extends State<LanguageButton> {
             leading: Image.asset("assets/images/vietnamese.jpeg", height: 25, width: 25),
             title: const Text("Vietnamese"),
             onTap: () async {
+              AppLogger.action('LANGUAGE selected', {'locale': 'vi'});
               await context.setLocale(const Locale('vi'));
               final prefs = await SharedPreferences.getInstance();
               await prefs.setString('language', 'vi');
@@ -66,7 +69,10 @@ class _LanguageButtonState extends State<LanguageButton> {
       height: 40,
       width: 40,
       child: ElevatedButton(
-        onPressed: () => _showLanguageSelector(context),
+        onPressed: () {
+          AppLogger.action('LANGUAGE selector opened');
+          _showLanguageSelector(context);
+        },
         style: ElevatedButton.styleFrom(
           elevation: 1,
           padding: const EdgeInsets.all(6),
