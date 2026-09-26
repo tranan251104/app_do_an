@@ -6,9 +6,17 @@ import 'package:app_do_an/core/network/api_exception.dart';
 import 'package:app_do_an/navigator/navigator_widget/transaction_detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:app_do_an/navigator/navigator_screen/transaction_statistics_screen.dart';
 
 class ScheduleTabbar extends StatefulWidget {
-  const ScheduleTabbar({super.key});
+  final String? initialTransactionId;
+  final String? navigationToken;
+
+  const ScheduleTabbar({
+    super.key,
+    this.initialTransactionId,
+    this.navigationToken,
+  });
 
   @override
   State<ScheduleTabbar> createState() => ScheduleTabbarState();
@@ -26,6 +34,7 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
   bool _loadingMore = false;
   bool _hasMore = true;
   int _page = 0;
+  int _requestVersion = 0;
   String? _error;
 
   String _type = 'ALL';
@@ -39,6 +48,38 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
     super.initState();
     _scrollController.addListener(_handleScroll);
     loadTransactions();
+    if (widget.initialTransactionId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _openInitialTransaction();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ScheduleTabbar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final transactionChanged =
+        oldWidget.initialTransactionId != widget.initialTransactionId;
+    final tokenChanged = oldWidget.navigationToken != widget.navigationToken;
+    if (widget.initialTransactionId != null &&
+        (transactionChanged || tokenChanged)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _openInitialTransaction();
+      });
+    }
+  }
+
+  Future<void> _openInitialTransaction() async {
+    final transactionId = widget.initialTransactionId?.trim();
+    if (!mounted || transactionId == null || transactionId.isEmpty) return;
+    AppLogger.action('TRANSACTION notification deep link opened', {
+      'id': AppLogger.mask(transactionId),
+      'navigationToken': AppLogger.mask(widget.navigationToken),
+    });
+    await showTransactionDetailSheet(
+      context,
+      transactionId: transactionId,
+    );
   }
 
   @override
@@ -63,6 +104,12 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
 
   void _onSearchChanged(String _) {
     _searchDebounce?.cancel();
+    // Invalidate in-flight pages immediately, including the debounce window.
+    _requestVersion++;
+    setState(() {
+      _loading = true;
+      _loadingMore = false;
+    });
     _searchDebounce = Timer(const Duration(milliseconds: 450), () {
       if (mounted) loadTransactions();
     });
@@ -119,6 +166,9 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
   }
 
   Future<void> loadTransactions() async {
+    if (!mounted) return;
+    _searchDebounce?.cancel();
+    final requestVersion = ++_requestVersion;
     final window = _queryWindow();
     AppLogger.repo('TRANSACTION_UI', 'Reload transaction history', {
       'type': _type,
@@ -151,22 +201,25 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
         from: window.from,
         to: window.to,
       );
-      if (!mounted) return;
+      if (!mounted || requestVersion != _requestVersion) return;
       setState(() {
         _transactions = result.items;
         _page = 0;
         _hasMore = result.hasMore;
       });
     } on ApiException catch (e) {
-      if (!mounted) return;
+      if (!mounted || requestVersion != _requestVersion) return;
       setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && requestVersion == _requestVersion) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   Future<void> _loadMore() async {
-    if (_loadingMore || !_hasMore) return;
+    if (_loading || _loadingMore || !_hasMore) return;
+    final requestVersion = _requestVersion;
     final window = _queryWindow();
     final nextPage = _page + 1;
     setState(() => _loadingMore = true);
@@ -181,7 +234,7 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
         from: window.from,
         to: window.to,
       );
-      if (!mounted) return;
+      if (!mounted || requestVersion != _requestVersion) return;
       final knownIds = _transactions.map((item) => item['id']?.toString()).toSet();
       final extra = result.items
           .where((item) => !knownIds.contains(item['id']?.toString()))
@@ -192,9 +245,11 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
         _hasMore = result.hasMore;
       });
     } on ApiException catch (e) {
-      _show(e.message);
+      if (mounted && requestVersion == _requestVersion) _show(e.message);
     } finally {
-      if (mounted) setState(() => _loadingMore = false);
+      if (mounted && requestVersion == _requestVersion) {
+        setState(() => _loadingMore = false);
+      }
     }
   }
 
@@ -486,6 +541,13 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Lịch sử giao dịch'),
+        actions: [
+          IconButton(
+            tooltip: 'Thống kê thu – chi',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TransactionStatisticsScreen())),
+            icon: const Icon(Icons.insights, color: Colors.purple),
+          ),
+        ],
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,

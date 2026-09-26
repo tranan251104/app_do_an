@@ -11,6 +11,7 @@ import '../features/user/data/user_repository.dart';
 import '../features/wallet/data/wallet_repository.dart';
 import 'network/api_client.dart';
 import 'storage/token_storage.dart';
+import '../features/ai/data/ai_repository.dart';
 
 class AppServices {
   AppServices._();
@@ -29,4 +30,5 @@ class AppServices {
   static final notification = NotificationRepository(api);
   static final catalog = CatalogRepository(api);
   static final qr = QrRepository(api);
+  static final ai = AiRepository(api);
 }

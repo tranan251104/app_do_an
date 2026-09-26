@@ -6,7 +6,7 @@ import 'package:app_do_an/navigator/navigator_screen/change_password_screen.dart
 import 'package:app_do_an/navigator/navigator_screen/personal_info_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/welcome_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app_do_an/core/storage/session_preferences.dart';
 
 class ProfileTabbar extends StatefulWidget {
   const ProfileTabbar({super.key});
@@ -22,8 +22,7 @@ class _ProfileTabbarState extends State<ProfileTabbar> {
     AppLogger.action('LOGOUT pressed');
     await NotificationService.unregisterCurrentDevice();
     await AppServices.auth.logout();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await clearSessionPreferences();
 
     if (!mounted) return;
     Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(

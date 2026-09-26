@@ -96,6 +96,7 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
         context,
         MaterialPageRoute(
           builder: (_) => TransactionResultScreen(
+            transactionId: widget.transferId,
             bankName: widget.external
                 ? (result['bankName']?.toString() ??
                       widget.bankName ??

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:app_do_an/core/app_services.dart';
 import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:app_do_an/firebase_options.dart';
+import 'package:app_do_an/navigator/service/notification_navigation_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -111,7 +112,18 @@ class NotificationService {
     );
     const settings = InitializationSettings(android: android, iOS: ios);
 
-    await _notificationsPlugin.initialize(settings);
+    await _notificationsPlugin.initialize(
+      settings,
+      onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
+    );
+
+    final launchDetails =
+        await _notificationsPlugin.getNotificationAppLaunchDetails();
+    final launchResponse = launchDetails?.notificationResponse;
+    if (launchDetails?.didNotificationLaunchApp == true &&
+        launchResponse != null) {
+      await _handleLocalNotificationResponse(launchResponse);
+    }
     AppLogger.success(
       'NOTIFICATION_LOCAL',
       'Local notification plugin initialized',
@@ -226,7 +238,7 @@ class NotificationService {
 
     final initialMessage = await _messaging.getInitialMessage();
     if (initialMessage != null) {
-      _handleNotificationOpened(initialMessage, source: 'terminated');
+      await _handleNotificationOpened(initialMessage, source: 'terminated');
     }
 
     AppLogger.success('FCM', 'Firebase Cloud Messaging initialized');
@@ -384,19 +396,54 @@ class NotificationService {
       title: title.isEmpty ? 'ANPAY' : title,
       body: body,
       recordInHistory: message.data['type'] != 'DEMO_PHONE_OTP',
+      actionData: message.data,
     );
   }
 
-  static void _handleNotificationOpened(
+  static Future<void> _handleNotificationOpened(
     RemoteMessage message, {
     String source = 'background',
-  }) {
+  }) async {
     AppLogger.action('FCM notification opened', {
       'source': source,
       'messageId': message.messageId,
       'data': message.data,
     });
-    // Later step: route by notificationId / transactionId from message.data.
+    await NotificationNavigationService.open(
+      message.data,
+      source: 'fcm_$source',
+    );
+  }
+
+  static Future<void> _handleLocalNotificationResponse(
+    NotificationResponse response,
+  ) async {
+    final payload = response.payload?.trim();
+    if (payload == null || payload.isEmpty) {
+      AppLogger.warning(
+        'NOTIFICATION_LOCAL',
+        'Local notification opened without action payload',
+      );
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is! Map) {
+        throw const FormatException('Local notification payload is not a map');
+      }
+      await NotificationNavigationService.open(
+        Map<String, dynamic>.from(decoded),
+        source: 'local_notification',
+      );
+    } catch (error, stackTrace) {
+      AppLogger.error(
+        'NOTIFICATION_LOCAL',
+        'Could not process local notification payload',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   static int _notificationIdFor(RemoteMessage message) {
@@ -412,6 +459,7 @@ class NotificationService {
     required String title,
     required String body,
     bool recordInHistory = true,
+    Map<String, dynamic>? actionData,
   }) async {
     AppLogger.repo('NOTIFICATION_LOCAL', 'Show notification', {
       'id': id,
@@ -440,7 +488,16 @@ class NotificationService {
       android: androidDetails,
       iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
     );
-    await _notificationsPlugin.show(id, title, body, details);
+    final payload = actionData == null || actionData.isEmpty
+        ? null
+        : jsonEncode(actionData);
+    await _notificationsPlugin.show(
+      id,
+      title,
+      body,
+      details,
+      payload: payload,
+    );
     AppLogger.success('NOTIFICATION_LOCAL', 'Notification displayed', {
       'id': id,
     });

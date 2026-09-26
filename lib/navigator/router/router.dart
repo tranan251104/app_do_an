@@ -55,7 +55,16 @@ GoRouter buildRouter(bool isFirstLaunch) {
       ),
       GoRoute(
         path: '/tabbar',
-        builder: (context, state) => const TabbarScreen(),
+        builder: (context, state) {
+          final rawTab = int.tryParse(state.uri.queryParameters['tab'] ?? '0') ?? 0;
+          final tab = rawTab.clamp(0, 4).toInt();
+          return TabbarScreen(
+            initialIndex: tab,
+            homeAction: state.uri.queryParameters['action'],
+            initialTransactionId: state.uri.queryParameters['transactionId'],
+            navigationToken: state.uri.queryParameters['notification'],
+          );
+        },
       ),
       GoRoute(
         path: '/transfer',

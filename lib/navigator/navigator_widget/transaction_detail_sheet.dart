@@ -4,6 +4,7 @@ import 'package:app_do_an/core/network/api_exception.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:app_do_an/navigator/navigator_screen/transaction_receipt_screen.dart';
 
 Future<void> showTransactionDetailSheet(
   BuildContext context, {
@@ -307,6 +308,11 @@ class _TransactionDetailSheetState extends State<_TransactionDetailSheet> {
                   ),
                 ],
                 const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: _loading || _error != null ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => TransactionReceiptScreen(data: {...data, 'id': widget.transactionId}))),
+                  icon: const Icon(Icons.receipt_long),
+                  label: const Text('Xem và chia sẻ biên lai'),
+                ),
                 OutlinedButton(
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Đóng'),

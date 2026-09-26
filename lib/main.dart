@@ -3,10 +3,12 @@ import 'dart:ui';
 import 'package:app_do_an/core/app_services.dart';
 import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:app_do_an/navigator/router/router.dart';
+import 'package:app_do_an/navigator/service/notification_navigation_service.dart';
 import 'package:app_do_an/navigator/service/notification_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'firebase_options.dart';
 
@@ -63,6 +65,9 @@ Future<void> main() async {
     await AppServices.tokens.clear();
   }
 
+  final appRouter = buildRouter(isFirstLaunch);
+  NotificationNavigationService.attachRouter(appRouter);
+
   AppLogger.app('runApp called');
   runApp(
     EasyLocalization(
@@ -71,15 +76,15 @@ Future<void> main() async {
       fallbackLocale: const Locale('vi'),
       startLocale: const Locale('vi'),
       saveLocale: true,
-      child: MyApp(isFirstLaunch: isFirstLaunch),
+      child: MyApp(router: appRouter),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  final bool isFirstLaunch;
+  final GoRouter router;
 
-  const MyApp({super.key, required this.isFirstLaunch});
+  const MyApp({super.key, required this.router});
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +93,7 @@ class MyApp extends StatelessWidget {
       locale: const Locale('vi'),
       supportedLocales: const [Locale('vi')],
       localizationsDelegates: context.localizationDelegates,
-      routerConfig: buildRouter(isFirstLaunch),
+      routerConfig: router,
       theme: ThemeData(
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {

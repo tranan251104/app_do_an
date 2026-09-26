@@ -3,6 +3,7 @@ import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:app_do_an/core/network/api_exception.dart';
 import 'package:app_do_an/features/notification/data/notification_repository.dart';
 import 'package:app_do_an/navigator/navigator_widget/transaction_detail_sheet.dart';
+import 'package:app_do_an/navigator/service/notification_navigation_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -239,6 +240,19 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen>
       await showTransactionDetailSheet(context, transactionId: transactionId);
       return;
     }
+
+    final handled = await NotificationNavigationService.open(
+      item,
+      source: 'notification_center',
+      markRead: false,
+    );
+    if (handled) {
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+
     await _showNotificationDetail(item);
   }
 

@@ -3,6 +3,8 @@ import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:app_do_an/core/network/api_exception.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:app_do_an/navigator/navigator_widget/favorite_services.dart';
+import 'package:app_do_an/navigator/navigator_screen/transaction_statistics_screen.dart';
 
 import 'package:app_do_an/navigator/navigator_screen/bill_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/financial_service_screen.dart';
@@ -10,11 +12,13 @@ import 'package:app_do_an/navigator/navigator_screen/lottery_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/notification_center_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/qr_main_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/service_category_screen.dart';
+import 'package:app_do_an/navigator/navigator_screen/ai_chat_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/travel_screen.dart';
 import 'package:app_do_an/navigator/navigator_tabbar/topup_tabbar.dart';
 import 'package:app_do_an/navigator/navigator_tabbar/telecom_screen.dart';
 import 'package:app_do_an/navigator/secondary_screen/recharge_screen.dart';
 import 'package:app_do_an/navigator/secondary_screen/telecom/generic_package_screen.dart';
+import 'package:app_do_an/navigator/secondary_screen/telecom/phone_topup_screen.dart';
 import 'package:app_do_an/navigator/secondary_screen/transfermoney_screen.dart';
 import 'package:app_do_an/navigator/service/app_data.dart';
 import 'package:app_do_an/navigator/service/partner_link_service.dart';
@@ -22,8 +26,15 @@ import 'schedule_tabbar.dart';
 
 class HomeTabbar extends StatefulWidget {
   final bool refreshHeaderOnStart;
+  final String? initialAction;
+  final String? navigationToken;
 
-  const HomeTabbar({super.key, this.refreshHeaderOnStart = true});
+  const HomeTabbar({
+    super.key,
+    this.refreshHeaderOnStart = true,
+    this.initialAction,
+    this.navigationToken,
+  });
 
   @override
   State<HomeTabbar> createState() => _HomeTabbarState();
@@ -75,6 +86,48 @@ class _HomeTabbarState extends State<HomeTabbar> {
   void initState() {
     super.initState();
     if (widget.refreshHeaderOnStart) _refreshHomeHeader();
+    if (widget.initialAction != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleInitialNotificationAction();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeTabbar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final actionChanged = oldWidget.initialAction != widget.initialAction;
+    final tokenChanged = oldWidget.navigationToken != widget.navigationToken;
+    if (widget.initialAction != null && (actionChanged || tokenChanged)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleInitialNotificationAction();
+      });
+    }
+  }
+
+  Future<void> _handleInitialNotificationAction() async {
+    if (!mounted) return;
+    final action = widget.initialAction?.trim().toLowerCase();
+    AppLogger.action('HOME notification deep link action', {
+      'action': action,
+      'navigationToken': AppLogger.mask(widget.navigationToken),
+    });
+
+    switch (action) {
+      case 'phone_topup':
+        await _loadBalance();
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PhoneTopupScreen(walletBalance: _walletBalance),
+          ),
+        );
+        if (mounted) _refreshHomeHeader();
+        break;
+      case 'service_catalog':
+        await _showServiceCatalog(partnersOnly: false);
+        break;
+    }
   }
 
   Future<void> _refreshHomeHeader() async {
@@ -129,6 +182,16 @@ class _HomeTabbarState extends State<HomeTabbar> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AiChatScreen()),
+          );
+        },
+        backgroundColor: Colors.purple,
+        child: const Icon(Icons.auto_awesome, color: Colors.white),
+      ),
       appBar: AppBar(
         backgroundColor: Colors.purple,
         elevation: 0,
@@ -290,6 +353,29 @@ class _HomeTabbarState extends State<HomeTabbar> {
             ),
 
             const Divider(),
+
+            FavoriteServices(
+              items: [
+                ..._popularItems.where((item) => item['label'] != 'Xem tất cả'),
+                ..._catalogOnlyItems,
+                ..._partnerItems.where((item) => item['label'] != 'Xem thêm'),
+              ],
+              onOpen: _handleMenuItem,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Card(
+                color: Colors.purple.shade50,
+                elevation: 0,
+                child: ListTile(
+                  leading: const Icon(Icons.insights, color: Colors.purple),
+                  title: const Text('Thống kê thu – chi'),
+                  subtitle: const Text('Xem dòng tiền và giao dịch theo tháng'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TransactionStatisticsScreen())),
+                ),
+              ),
+            ),
 
             // 🔹 TabBar + Grid menu
             DefaultTabController(
@@ -701,9 +787,18 @@ class _HomeTabbarState extends State<HomeTabbar> {
       ..._popularItems.where((item) => item["label"] != "Xem tất cả"),
       ..._catalogOnlyItems,
     ];
-    final partnerItems = _partnerItems
-        .where((item) => item["label"] != "Xem thêm")
-        .toList(growable: false);
+    final partnerItems = [
+      ..._partnerItems.where((item) => item["label"] != "Xem thêm"),
+      {"icon": Icons.shopping_cart, "label": "Shopee"},
+      {"icon": Icons.local_taxi, "label": "Grab"},
+      {"icon": Icons.motorcycle, "label": "Be"},
+      {"icon": Icons.airplanemode_active, "label": "Traveloka"},
+      {"icon": Icons.shopping_bag, "label": "Tiki"},
+      {"icon": Icons.movie_filter, "label": "Netflix"},
+      {"icon": Icons.local_hospital, "label": "Bệnh viện Vinmec"},
+      {"icon": Icons.flight, "label": "Vietnam Airlines"},
+      {"icon": Icons.local_cafe, "label": "The Coffee House"},
+    ];
 
     await showModalBottomSheet<void>(
       context: context,

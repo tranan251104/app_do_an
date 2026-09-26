@@ -3,6 +3,7 @@ import 'package:app_do_an/navigator/navigator_screen/tabbar_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:app_do_an/navigator/navigator_screen/transaction_receipt_screen.dart';
 
 class TransactionResultScreen extends StatelessWidget {
   final String bankName;
@@ -12,6 +13,7 @@ class TransactionResultScreen extends StatelessWidget {
   final bool isServiceTransaction;
   final bool isSimulation;
   final String? providerReference;
+  final String transactionId;
 
   const TransactionResultScreen({
     super.key,
@@ -19,6 +21,7 @@ class TransactionResultScreen extends StatelessWidget {
     required this.accountName,
     required this.amount,
     required this.time,
+    required this.transactionId,
     this.isServiceTransaction = false,
     this.isSimulation = false,
     this.providerReference,
@@ -102,7 +105,18 @@ class TransactionResultScreen extends StatelessWidget {
                         _infoRow('Tên tài khoản nhận', accountName),
                       ],
                       _infoRow('Số tiền', '$amountText VND'),
-                      _infoRow('Phí giao dịch', 'Miễn phí'),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        icon: const Icon(Icons.receipt_long),
+                        label: const Text('Xem và chia sẻ biên lai'),
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TransactionReceiptScreen(transactionId: transactionId, data: {
+                          'status': 'COMPLETED', 'direction': 'OUT',
+                          'amount': amount, 'counterpartyName': accountName,
+                          'bankName': bankName, 'displayTime': time,
+                          'simulated': isSimulation,
+                          if (providerReference != null) 'providerReference': providerReference,
+                        }))),
+                      ),
                       if (providerReference != null &&
                           providerReference!.trim().isNotEmpty)
                         _infoRow('Mã mô phỏng', providerReference!),

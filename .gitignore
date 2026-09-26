@@ -33,7 +33,9 @@ migrate_working_dir/
 .pub/
 /build/
 /android/build/
-/test/
+/test/*
+!/test/frontend_features_test.dart
+!/test/frontend_regressions_test.dart
 
 # Local AI assistant configuration and downloaded skills
 /.agents/
