@@ -84,20 +84,23 @@ class NotificationNavigationService {
     return handled;
   }
 
-  static bool _navigate(
-    Map<String, dynamic> data, {
-    required String source,
-  }) {
+  static bool _navigate(Map<String, dynamic> data, {required String source}) {
     final router = _router;
     if (router == null) return false;
 
-    final actionType = _actionType(data) ??
+    final actionType =
+        _actionType(data) ??
         (_transactionId(data) != null ? 'OPEN_TRANSACTION' : null);
     final transactionId = _transactionId(data);
     final navigationToken = _navigationToken(data);
 
     late final String location;
     switch (actionType) {
+      case 'OPEN_LUCKY_MONEY':
+        final envelopeId = data['actionData']?.toString().trim();
+        if (envelopeId == null || envelopeId.isEmpty) return false;
+        location = '/lucky-money/${Uri.encodeComponent(envelopeId)}';
+        break;
       case 'OPEN_TRANSACTION':
         location = _tabLocation(
           tab: 3,
@@ -106,16 +109,10 @@ class NotificationNavigationService {
         );
         break;
       case 'OPEN_PROMOTIONS':
-        location = _tabLocation(
-          tab: 1,
-          navigationToken: navigationToken,
-        );
+        location = _tabLocation(tab: 1, navigationToken: navigationToken);
         break;
       case 'OPEN_QR':
-        location = _tabLocation(
-          tab: 2,
-          navigationToken: navigationToken,
-        );
+        location = _tabLocation(tab: 2, navigationToken: navigationToken);
         break;
       case 'OPEN_TRANSFER':
         location = Uri(
@@ -140,11 +137,15 @@ class NotificationNavigationService {
         );
         break;
       default:
-        AppLogger.warning('NOTIFICATION_NAV', 'Unsupported notification action', {
-          'source': source,
-          'actionType': actionType,
-          'actionData': data['actionData']?.toString(),
-        });
+        AppLogger.warning(
+          'NOTIFICATION_NAV',
+          'Unsupported notification action',
+          {
+            'source': source,
+            'actionType': actionType,
+            'actionData': data['actionData']?.toString(),
+          },
+        );
         return false;
     }
 

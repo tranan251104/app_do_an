@@ -395,7 +395,10 @@ class NotificationService {
       id: _notificationIdFor(message),
       title: title.isEmpty ? 'ANPAY' : title,
       body: body,
-      recordInHistory: message.data['type'] != 'DEMO_PHONE_OTP',
+      // Demo OTP must not be copied into SharedPreferences notification
+      // history. The OS may display its push banner for this demo flow.
+      recordInHistory: message.data['type'] != 'DEMO_PHONE_OTP' &&
+          message.data['type'] != 'TRANSFER_OTP_DEMO',
       actionData: message.data,
     );
   }

@@ -9,18 +9,17 @@ import 'package:app_do_an/navigator/navigator_screen/welcome_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/wallet_number_screen.dart';
 import 'package:app_do_an/navigator/secondary_screen/transfermoney_screen.dart';
 import 'package:go_router/go_router.dart';
+import 'package:app_do_an/features/lucky_money/presentation/lucky_money_screen.dart';
+import 'package:app_do_an/features/lucky_money/presentation/lucky_money_detail_screen.dart';
 
 GoRouter buildRouter(bool isFirstLaunch) {
   final observer = AppRouteObserver();
   final initialLocation = isFirstLaunch ? '/createprofile' : '/welcome';
-  AppLogger.app(
-    'Router created',
-    {
-      'isFirstLaunch': isFirstLaunch,
-      'initialLocation': initialLocation,
-      'startupPolicy': 'first_install_register_otherwise_login',
-    },
-  );
+  AppLogger.app('Router created', {
+    'isFirstLaunch': isFirstLaunch,
+    'initialLocation': initialLocation,
+    'startupPolicy': 'first_install_register_otherwise_login',
+  });
   return GoRouter(
     observers: [observer],
     initialLocation: initialLocation,
@@ -56,7 +55,8 @@ GoRouter buildRouter(bool isFirstLaunch) {
       GoRoute(
         path: '/tabbar',
         builder: (context, state) {
-          final rawTab = int.tryParse(state.uri.queryParameters['tab'] ?? '0') ?? 0;
+          final rawTab =
+              int.tryParse(state.uri.queryParameters['tab'] ?? '0') ?? 0;
           final tab = rawTab.clamp(0, 4).toInt();
           return TabbarScreen(
             initialIndex: tab,
@@ -69,6 +69,15 @@ GoRouter buildRouter(bool isFirstLaunch) {
       GoRoute(
         path: '/transfer',
         builder: (context, state) => const TransferMoneyScreen(),
+      ),
+      GoRoute(
+        path: '/lucky-money',
+        builder: (context, state) => const LuckyMoneyScreen(),
+      ),
+      GoRoute(
+        path: '/lucky-money/:id',
+        builder: (context, state) =>
+            LuckyMoneyDetailScreen(envelopeId: state.pathParameters['id']!),
       ),
     ],
   );

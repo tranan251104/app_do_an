@@ -11,14 +11,21 @@ import 'package:url_launcher/url_launcher.dart';
 class QRScanScreen extends StatefulWidget {
   final bool isTab;
   final bool isActive;
+  final bool selectRecipientOnly;
 
-  const QRScanScreen({super.key, this.isTab = true, this.isActive = true});
+  const QRScanScreen({
+    super.key,
+    this.isTab = true,
+    this.isActive = true,
+    this.selectRecipientOnly = false,
+  });
 
   @override
   State<QRScanScreen> createState() => _QRScanScreenState();
 }
 
-class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver {
+class _QRScanScreenState extends State<QRScanScreen>
+    with WidgetsBindingObserver {
   MobileScannerController get _controller => ScannerService.instance;
 
   static bool _isGlobalProcessing = false;
@@ -72,10 +79,17 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
     setState(() => _isScanned = true);
 
     try {
-      if (code.startsWith('anpay://') || code.contains('walletCode=') || code.toUpperCase().startsWith('ANP')) {
+      if (code.startsWith('anpay://') ||
+          code.contains('walletCode=') ||
+          code.toUpperCase().startsWith('ANP')) {
         final resolved = await AppServices.qr.resolve(code);
         final canTransfer = resolved['canTransfer'] == true;
-        if (!canTransfer) throw const ApiException(code: 'WALLET_UNAVAILABLE', message: 'Ví người nhận hiện không thể nhận tiền');
+        if (!canTransfer) {
+          throw const ApiException(
+            code: 'WALLET_UNAVAILABLE',
+            message: 'Ví người nhận hiện không thể nhận tiền',
+          );
+        }
 
         final account = PaymentAccount(
           accountNumber: resolved['walletCode']?.toString() ?? '',
@@ -83,9 +97,16 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
           provider: 'ANPAY Internal',
         );
         if (!mounted) return;
+        if (widget.selectRecipientOnly) {
+          _isGlobalProcessing = false;
+          Navigator.of(context).pop(account);
+          return;
+        }
         await Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => TransferMoneyFormScreen(account: account)),
+          MaterialPageRoute(
+            builder: (_) => TransferMoneyFormScreen(account: account),
+          ),
         );
         _resumeScanner();
         return;
@@ -195,7 +216,9 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
           if (_isScanned)
             Container(
               color: Colors.black45,
-              child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
             ),
         ],
       ),

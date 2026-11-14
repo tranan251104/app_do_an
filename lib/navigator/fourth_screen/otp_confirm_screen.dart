@@ -15,6 +15,7 @@ class OtpConfirmScreen extends StatefulWidget {
   final DateTime? expiresAt;
   final bool external;
   final String? bankName;
+  final String? otpChannel;
 
   const OtpConfirmScreen({
     super.key,
@@ -26,6 +27,7 @@ class OtpConfirmScreen extends StatefulWidget {
     this.expiresAt,
     this.external = false,
     this.bankName,
+    this.otpChannel,
   });
 
   @override
@@ -38,6 +40,18 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
   bool _resending = false;
 
   String get _tag => widget.external ? 'EXTERNAL_TRANSFER_UI' : 'TRANSFER_UI';
+
+  String get _otpInstruction {
+    if (widget.otpChannel == 'FCM_DEMO') {
+      return 'OTP demo đã được yêu cầu gửi qua thông báo đẩy FCM '
+          'đến thiết bị đăng nhập. Đây không phải SMS thật.';
+    }
+    if (widget.otpChannel == 'EMAIL' ||
+        (widget.otpChannel == null && widget.external)) {
+      return 'Nhập OTP được gửi tới email của bạn để xác nhận giao dịch.';
+    }
+    return 'Nhập OTP để Backend xác nhận giao dịch chuyển tiền.';
+  }
 
   Future<void> _verifyOtp() async {
     AppLogger.action(
@@ -208,12 +222,7 @@ class _OtpConfirmScreenState extends State<OtpConfirmScreen> {
                   ),
                 ),
               ),
-            Text(
-              widget.external
-                  ? 'Nhập OTP để Backend xác nhận giao dịch ngân hàng mô phỏng'
-                  : 'Nhập mã xác thực để backend hoàn tất giao dịch chuyển tiền',
-              textAlign: TextAlign.center,
-            ),
+            Text(_otpInstruction, textAlign: TextAlign.center),
             const SizedBox(height: 12),
             if (widget.external && widget.bankName != null)
               Text(

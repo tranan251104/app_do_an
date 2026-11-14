@@ -3,6 +3,7 @@ import 'package:app_do_an/navigator/fourth_screen/transfer_money_form_screen.dar
 import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/third_screen/bank_account_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:app_do_an/features/lucky_money/presentation/lucky_money_screen.dart';
 
 class TransferMoneyScreen extends StatefulWidget {
   const TransferMoneyScreen({super.key});
@@ -30,13 +31,13 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen>
   Future<void> _openAnPayTransfer() async {
     AppLogger.action('TRANSFER: open AnPay transfer flow');
 
-    final walletCode = await showDialog<String>(
+    final recipientInput = await showDialog<String>(
       context: context,
       barrierDismissible: true,
       builder: (_) => const _AnPayWalletDialog(),
     );
 
-    if (!mounted || walletCode == null) {
+    if (!mounted || recipientInput == null) {
       AppLogger.warning('TRANSFER_UI', 'AnPay transfer dialog cancelled');
       return;
     }
@@ -48,16 +49,15 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen>
 
     if (!mounted) return;
 
-    AppLogger.action(
-      'TRANSFER: recipient entered',
-      {'walletCode': AppLogger.mask(walletCode)},
-    );
+    AppLogger.action('TRANSFER: recipient entered', {
+      'recipient': AppLogger.mask(recipientInput),
+    });
 
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => TransferMoneyFormScreen(
           account: PaymentAccount(
-            accountNumber: walletCode,
+            accountNumber: recipientInput,
             name: 'Người nhận AnPay',
             provider: 'ANPAY Internal',
           ),
@@ -92,7 +92,9 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen>
                   Icons.qr_code_scanner,
                   'Quét QR',
                   () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Dùng tab QR để quét mã AnPay.')),
+                    const SnackBar(
+                      content: Text('Dùng tab QR để quét mã AnPay.'),
+                    ),
                   ),
                 ),
                 _actionButton(
@@ -103,14 +105,18 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen>
                 _actionButton(
                   Icons.card_giftcard,
                   'Gửi Lì Xì',
-                  () => _unsupported('Gửi Lì Xì'),
+                  () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const LuckyMoneyScreen()),
+                  ),
                 ),
                 _actionButton(
                   Icons.account_balance_outlined,
                   'Đến Ngân hàng',
                   () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const BankAccountScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const BankAccountScreen(),
+                    ),
                   ),
                 ),
               ],
@@ -136,7 +142,7 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen>
               children: [
                 _emptyState(
                   'Không tìm thấy người nhận gần đây',
-                  'Nhập mã ví AnPay hoặc quét QR để bắt đầu.',
+                  'Nhập mã ví hoặc số điện thoại AnPay để bắt đầu.',
                 ),
                 _emptyState(
                   'Chưa có mục yêu thích',
@@ -151,7 +157,9 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen>
   }
 
   void _unsupported(String feature) {
-    AppLogger.action('Unsupported transfer feature pressed', {'feature': feature});
+    AppLogger.action('Unsupported transfer feature pressed', {
+      'feature': feature,
+    });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -229,6 +237,7 @@ class _AnPayWalletDialog extends StatefulWidget {
 class _AnPayWalletDialogState extends State<_AnPayWalletDialog> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  String? _validationError;
 
   @override
   void dispose() {
@@ -239,7 +248,16 @@ class _AnPayWalletDialogState extends State<_AnPayWalletDialog> {
 
   void _submit() {
     final value = _controller.text.trim().toUpperCase();
-    if (value.isEmpty) return;
+    final compact = value.replaceAll(RegExp(r'[\s().-]'), '');
+    final isWallet = RegExp(r'^(?:ANP[0-9]{9}|[0-9]{9})$').hasMatch(compact);
+    final isPhone =
+        RegExp(r'^(?:0[0-9]{9}|(?:\+84|84|0084)[0-9]{9})$').hasMatch(compact);
+    if (!isWallet && !isPhone) {
+      setState(() {
+        _validationError = 'Nhập mã ví ANP + 9 số hoặc SĐT Việt Nam hợp lệ.';
+      });
+      return;
+    }
 
     // Remove focus first so the editable text/keyboard can cleanly detach
     // before the dialog route is popped.
@@ -255,28 +273,39 @@ class _AnPayWalletDialogState extends State<_AnPayWalletDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Chuyển tới ví AnPay'),
-      content: TextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        autofocus: true,
-        textCapitalization: TextCapitalization.characters,
-        textInputAction: TextInputAction.done,
-        decoration: const InputDecoration(
-          labelText: 'Mã ví ANP...',
-          hintText: 'Ví dụ: ANP123456789',
-        ),
-        onSubmitted: (_) => _submit(),
+      title: const Text('Chuyển nội bộ AnPay'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _controller,
+            focusNode: _focusNode,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              labelText: 'Số tài khoản hoặc số điện thoại',
+              hintText: 'ANP123456789 / 0331234567',
+              errorText: _validationError,
+            ),
+            onChanged: (_) {
+              if (_validationError != null) {
+                setState(() => _validationError = null);
+              }
+            },
+            onSubmitted: (_) => _submit(),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'SĐT phải thuộc tài khoản AnPay. Không phải chuyển liên ngân hàng.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ],
       ),
       actions: [
-        TextButton(
-          onPressed: _cancel,
-          child: const Text('HỦY'),
-        ),
-        ElevatedButton(
-          onPressed: _submit,
-          child: const Text('TIẾP TỤC'),
-        ),
+        TextButton(onPressed: _cancel, child: const Text('HỦY')),
+        ElevatedButton(onPressed: _submit, child: const Text('TIẾP TỤC')),
       ],
     );
   }

@@ -3,6 +3,7 @@ import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:app_do_an/core/network/api_exception.dart';
 import 'package:app_do_an/navigator/fourth_screen/otp_confirm_screen.dart';
 import 'package:app_do_an/navigator/model/bank_catalog.dart';
+import 'package:app_do_an/navigator/service/notification_service.dart';
 import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -33,6 +34,15 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
       widget.account.provider.toUpperCase().contains('ANPAY');
 
   bool get _isExternalBank => !_isInternalAnPay && !widget.account.isService;
+
+  // Same Vietnamese phone formats supported by TransferRecipientResolver.java.
+  bool get _isPhoneRecipient {
+    if (!_isInternalAnPay) return false;
+    final compact = widget.account.accountNumber
+        .replaceAll(RegExp(r'[\s().-]'), '');
+    return RegExp(r'^(?:0[0-9]{9}|(?:\+84|84|0084)[0-9]{9})$')
+        .hasMatch(compact);
+  }
 
   BankOption? get _bank =>
       bankByBin(widget.account.bankBin) ?? bankByName(widget.account.provider);
@@ -147,13 +157,26 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
 
     try {
       final me = await AppServices.user.me();
-      final email = me['email']?.toString() ?? '';
+      final email = me['email']?.toString().trim() ?? '';
+      // Both internal transfers and simulated bank transfers now use the
+      // backend-selected OTP channel: EMAIL for email accounts, FCM_DEMO for
+      // phone-only accounts (when the demo channel is enabled on the backend).
+      // Do not reject phone-only users on the Flutter side.
       if (email.isEmpty) {
-        throw const ApiException(
-          code: 'EMAIL_OTP_REQUIRED',
-          message:
-              'Tài khoản chỉ có số điện thoại chưa thể nhận OTP chuyển tiền. Backend hiện gửi OTP qua email.',
+        // An active FCM device is required for demo phone OTP delivery.
+        // This step never bypasses server-side eligibility or OTP verification.
+        final deviceRegistered = await NotificationService.registerCurrentDevice(
+          source: _isExternalBank
+              ? 'external_transfer_phone_otp'
+              : 'internal_transfer_phone_otp',
         );
+        if (!deviceRegistered) {
+          throw const ApiException(
+            code: 'OTP_FCM_DEVICE_REQUIRED',
+            message: 'Không thể đăng ký thiết bị để nhận OTP demo. '
+                'Hãy kiểm tra quyền thông báo và kết nối Firebase rồi thử lại.',
+          );
+        }
       }
 
       if (_isExternalBank) {
@@ -194,7 +217,8 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
     );
 
     final prepared = await AppServices.transfer.prepare(
-      walletCode: widget.account.accountNumber,
+      walletCode: _isPhoneRecipient ? null : widget.account.accountNumber,
+      recipientPhone: _isPhoneRecipient ? widget.account.accountNumber : null,
       amount: amount,
       note: _noteController.text,
     );
@@ -223,6 +247,7 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
           amount: (prepared['amount'] as num?)?.toInt() ?? amount,
           expiresAt:
               DateTime.tryParse(prepared['expiresAt']?.toString() ?? ''),
+          otpChannel: prepared['otpChannel']?.toString(),
         ),
       ),
     );
@@ -279,6 +304,7 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
           external: true,
           bankName:
               prepared['bankName']?.toString() ?? widget.account.provider,
+          otpChannel: prepared['otpChannel']?.toString(),
         ),
       ),
     );
@@ -340,7 +366,9 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
                             Text(
                               _isExternalBank
                                   ? '${widget.account.provider} · ${_maskAccount(widget.account.accountNumber)}'
-                                  : '${widget.account.provider} · ${widget.account.accountNumber}',
+                                  : '${widget.account.provider} · '
+                                      '${_isPhoneRecipient ? "SĐT " : ""}'
+                                      '${widget.account.accountNumber}',
                               style: const TextStyle(color: Colors.grey),
                             ),
                             if (_isExternalBank && _bankBin != null)
