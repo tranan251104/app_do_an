@@ -12,6 +12,7 @@ import '../features/wallet/data/wallet_repository.dart';
 import 'network/api_client.dart';
 import 'storage/token_storage.dart';
 import '../features/ai/data/ai_repository.dart';
+import '../features/lucky_money/data/lucky_money_repository.dart';
 
 class AppServices {
   AppServices._();
@@ -24,6 +25,7 @@ class AppServices {
   static final user = UserRepository(api);
   static final wallet = WalletRepository(api);
   static final transfer = TransferRepository(api);
+  static final luckyMoney = LuckyMoneyRepository(api);
   static final payment = PaymentRepository(api);
   static final transaction = TransactionRepository(api);
   static final beneficiary = BeneficiaryRepository(api);

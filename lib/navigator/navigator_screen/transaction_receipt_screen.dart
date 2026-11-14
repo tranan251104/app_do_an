@@ -150,6 +150,8 @@ class _TransactionReceiptScreenState extends State<TransactionReceiptScreen> {
           'COMPLETED': 'Giao dịch thành công',
           'PENDING': 'Đang xử lý',
           'OTP_REQUIRED': 'Chờ xác nhận OTP',
+          'WAITING_OPEN': 'Lì xì đang chờ mở',
+          'EXPIRED': 'Giao dịch đã hết hạn',
           'FAILED': 'Giao dịch thất bại',
           'CANCELLED': 'Giao dịch đã hủy',
           'CANCELED': 'Giao dịch đã hủy',
@@ -164,7 +166,7 @@ class _TransactionReceiptScreenState extends State<TransactionReceiptScreen> {
     )?.toLocal();
     final color = completed
         ? Colors.green
-        : (status == 'PENDING' || status == 'OTP_REQUIRED')
+        : (status == 'PENDING' || status == 'OTP_REQUIRED' || status == 'WAITING_OPEN')
         ? Colors.orange
         : Colors.red;
     return Scaffold(
@@ -201,7 +203,7 @@ class _TransactionReceiptScreenState extends State<TransactionReceiptScreen> {
                       child: Icon(
                         completed
                             ? Icons.check_circle
-                            : (status == 'PENDING' || status == 'OTP_REQUIRED')
+                            : (status == 'PENDING' || status == 'OTP_REQUIRED' || status == 'WAITING_OPEN')
                             ? Icons.schedule
                             : Icons.info,
                         color: color,

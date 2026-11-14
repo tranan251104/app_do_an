@@ -72,6 +72,10 @@ class _TransactionDetailSheetState extends State<_TransactionDetailSheet> {
     switch (status.toUpperCase()) {
       case 'COMPLETED':
         return 'Thành công';
+      case 'WAITING_OPEN':
+        return 'Lì xì chờ mở';
+      case 'EXPIRED':
+        return 'Đã hết hạn';
       case 'PENDING':
       case 'OTP_REQUIRED':
         return 'Đang xử lý';
@@ -92,6 +96,8 @@ class _TransactionDetailSheetState extends State<_TransactionDetailSheet> {
       case 'PENDING':
       case 'OTP_REQUIRED':
         return Colors.orange;
+      case 'WAITING_OPEN':
+        return Colors.orange;
       case 'FAILED':
       case 'CANCELLED':
       case 'CANCELED':
@@ -102,6 +108,7 @@ class _TransactionDetailSheetState extends State<_TransactionDetailSheet> {
   }
 
   String _typeLabel(String type, String direction) {
+    if (type == 'LUCKY_MONEY') return direction == 'IN' ? 'Nhận lì xì' : 'Gửi lì xì';
     if (type == 'INTERNAL_TRANSFER') {
       return direction == 'IN' ? 'Nhận tiền AnPay' : 'Chuyển tiền AnPay';
     }

@@ -9,18 +9,30 @@ class TransferRepository {
 
   TransferRepository(this.api);
 
+  /// Internal transfers accept an AnPay wallet code OR a recipient phone.
+  /// They intentionally never call /external-transfers/prepare.
   Future<Map<String, dynamic>> prepare({
-    required String walletCode,
+    String? walletCode,
+    String? recipientPhone,
     required int amount,
     String? note,
     String? idempotencyKey,
   }) async {
+    final code = walletCode?.trim();
+    final phone = recipientPhone?.trim();
+    final hasCode = code != null && code.isNotEmpty;
+    final hasPhone = phone != null && phone.isNotEmpty;
+    if (hasCode == hasPhone) {
+      throw ArgumentError('Chỉ truyền mã ví hoặc số điện thoại người nhận');
+    }
+
     final key = idempotencyKey ?? IdempotencyKey.generate();
     AppLogger.repo(
       'TRANSFER',
       'PREPARE start',
       {
-        'recipientWallet': AppLogger.mask(walletCode),
+        'recipientType': hasPhone ? 'PHONE' : 'WALLET_CODE',
+        'recipient': AppLogger.mask(hasPhone ? phone : code),
         'amount': amount,
         'hasNote': note?.trim().isNotEmpty ?? false,
         'idempotencyKey': AppLogger.mask(key),
@@ -31,7 +43,8 @@ class TransferRepository {
         '/transfers/prepare',
         options: Options(headers: {'Idempotency-Key': key}),
         data: {
-          'recipientWalletCode': walletCode.trim(),
+          if (hasPhone) 'recipientPhone': phone,
+          if (hasCode) 'recipientWalletCode': code,
           'amount': amount,
           'note': note?.trim(),
         },
@@ -53,7 +66,11 @@ class TransferRepository {
         'PREPARE failed',
         error: error,
         stackTrace: stackTrace,
-        data: {'recipientWallet': AppLogger.mask(walletCode), 'amount': amount},
+        data: {
+          'recipient': AppLogger.mask(hasPhone ? phone : code),
+          'recipientType': hasPhone ? 'PHONE' : 'WALLET_CODE',
+          'amount': amount,
+        },
       );
       throw ApiClient.mapError(error);
     }

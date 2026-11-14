@@ -832,6 +832,7 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
   String _fallbackTitle(Map<String, dynamic> tx) {
     final type = tx['type']?.toString() ?? '';
     final direction = tx['direction']?.toString().toUpperCase() ?? '';
+    if (type == 'LUCKY_MONEY') return direction == 'IN' ? 'Nhận lì xì' : 'Gửi lì xì';
     if (type == 'INTERNAL_TRANSFER') {
       return direction == 'IN' ? 'Nhận tiền' : 'Chuyển tiền';
     }
@@ -844,6 +845,10 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
     switch (status.toUpperCase()) {
       case 'COMPLETED':
         return 'Thành công';
+      case 'WAITING_OPEN':
+        return 'Lì xì chờ mở';
+      case 'EXPIRED':
+        return 'Đã hết hạn';
       case 'PENDING':
       case 'OTP_REQUIRED':
         return 'Đang xử lý';
@@ -863,6 +868,8 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
         return Colors.green.shade700;
       case 'PENDING':
       case 'OTP_REQUIRED':
+        return Colors.orange.shade700;
+      case 'WAITING_OPEN':
         return Colors.orange.shade700;
       case 'FAILED':
       case 'CANCELLED':

@@ -47,6 +47,7 @@ class TransactionSummary {
   static String typeLabel(String type) =>
       const {
         'INTERNAL_TRANSFER': 'Chuyển / nhận tiền AnPay',
+        'LUCKY_MONEY': 'Lì xì cá nhân',
         'EXTERNAL_BANK_TRANSFER': 'Chuyển ngân hàng',
         'TOP_UP': 'Nạp tiền',
         'BILL_PAYMENT': 'Thanh toán hóa đơn',
