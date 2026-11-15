@@ -4,6 +4,7 @@ import 'package:app_do_an/navigator/model/payment_account.dart';
 import 'package:app_do_an/navigator/third_screen/bank_account_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:app_do_an/features/lucky_money/presentation/lucky_money_screen.dart';
+import 'package:app_do_an/navigator/secondary_screen/withdrawal_screen.dart';
 
 class TransferMoneyScreen extends StatefulWidget {
   const TransferMoneyScreen({super.key});
@@ -100,7 +101,9 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen>
                 _actionButton(
                   Icons.account_balance,
                   'Rút tiền',
-                  () => _unsupported('Rút tiền'),
+                  () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const WithdrawalScreen()),
+                  ),
                 ),
                 _actionButton(
                   Icons.card_giftcard,
