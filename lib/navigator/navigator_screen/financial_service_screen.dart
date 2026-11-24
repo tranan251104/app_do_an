@@ -527,17 +527,30 @@ class FinancialProductCatalog {
 
 class FinancialServiceScreen extends StatefulWidget {
   final FinancialServiceType type;
+  final FinancialProduct? initialProduct;
 
-  const FinancialServiceScreen({super.key, required this.type});
+  const FinancialServiceScreen({
+    super.key,
+    required this.type,
+    this.initialProduct,
+  });
 
   @override
   State<FinancialServiceScreen> createState() => _FinancialServiceScreenState();
 }
 
 class _FinancialServiceScreenState extends State<FinancialServiceScreen> {
-  final TextEditingController _searchController = TextEditingController();
+  late final TextEditingController _searchController;
   FinancialProduct? _selectedProduct;
   String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedProduct = widget.initialProduct;
+    _query = widget.initialProduct?.name ?? '';
+    _searchController = TextEditingController(text: _query);
+  }
 
   List<FinancialProduct> get _products =>
       FinancialProductCatalog.forType(widget.type);

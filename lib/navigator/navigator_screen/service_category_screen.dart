@@ -85,7 +85,7 @@ class ServiceCategoryScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => _openService(context, service),
+                  onTap: () => openService(context, title, service),
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -127,7 +127,11 @@ class ServiceCategoryScreen extends StatelessWidget {
     );
   }
 
-  void _openService(BuildContext context, ServiceCategoryItem service) {
+  static void openService(
+    BuildContext context,
+    String title,
+    ServiceCategoryItem service,
+  ) {
     AppLogger.action('SERVICE category item selected', {
       'category': title,
       'service': service.label,

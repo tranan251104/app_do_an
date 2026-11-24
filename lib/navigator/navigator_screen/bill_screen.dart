@@ -6,6 +6,15 @@ import 'package:app_do_an/navigator/service/app_data.dart';
 class BillScreen extends StatelessWidget {
   const BillScreen({super.key});
 
+  static Widget serviceScreen(Map<String, dynamic> service) =>
+      GenericBillScreen(
+        title: service['title'],
+        inputLabel: service['inputLabel'],
+        hintText: service['hint'],
+        serviceType: service['type'],
+        providers: List<String>.from(service['providers']),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -26,22 +35,19 @@ class BillScreen extends StatelessWidget {
         itemBuilder: (context, index) {
           final service = AppData.billServices[index];
           return Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             elevation: 3,
             child: InkWell(
               onTap: () {
-                AppLogger.action('BILL service selected', {'label': service['label'], 'type': service['type']});
+                AppLogger.action('BILL service selected', {
+                  'label': service['label'],
+                  'type': service['type'],
+                });
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => GenericBillScreen(
-                      title: service['title'],
-                      inputLabel: service['inputLabel'],
-                      hintText: service['hint'],
-                      serviceType: service['type'],
-                      providers: List<String>.from(service['providers']),
-                    ),
-                  ),
+                  MaterialPageRoute(builder: (_) => serviceScreen(service)),
                 );
               },
               child: Column(
@@ -49,7 +55,13 @@ class BillScreen extends StatelessWidget {
                 children: [
                   Icon(service['icon'], size: 50, color: Colors.purple),
                   const SizedBox(height: 12),
-                  Text(service['label'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    service['label'],
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),

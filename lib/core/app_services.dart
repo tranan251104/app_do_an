@@ -14,6 +14,8 @@ import 'storage/token_storage.dart';
 import '../features/ai/data/ai_repository.dart';
 import '../features/lucky_money/data/lucky_money_repository.dart';
 import '../features/withdrawal/data/withdrawal_repository.dart';
+import '../features/smart_otp/data/smart_otp_repository.dart';
+import '../features/smart_otp/data/smart_otp_key_store.dart';
 
 class AppServices {
   AppServices._();
@@ -27,6 +29,8 @@ class AppServices {
   static final wallet = WalletRepository(api);
   static final transfer = TransferRepository(api);
   static final withdrawal = WithdrawalRepository(api);
+  static final smartOtp = SmartOtpRepository(api);
+  static const smartOtpKeyStore = SmartOtpKeyStore();
   static final luckyMoney = LuckyMoneyRepository(api);
   static final payment = PaymentRepository(api);
   static final transaction = TransactionRepository(api);

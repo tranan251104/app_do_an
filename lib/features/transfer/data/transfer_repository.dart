@@ -76,19 +76,19 @@ class TransferRepository {
     }
   }
 
-  Future<Map<String, dynamic>> confirm(String transferId, String otp) async {
+  Future<Map<String, dynamic>> confirm(String transferId, Map<String, String> proof) async {
     AppLogger.repo(
       'TRANSFER',
       'CONFIRM OTP start',
       {
         'transferId': AppLogger.mask(transferId),
-        'otpLength': otp.length,
+        'confirmationMethod': 'SMART_OTP',
       },
     );
     try {
       final response = await api.dio.post<Map<String, dynamic>>(
         '/transfers/$transferId/confirm',
-        data: {'otp': otp},
+        data: proof,
       );
       final data = Map<String, dynamic>.from(response.data?['data'] as Map);
       AppLogger.success(
@@ -236,20 +236,20 @@ class TransferRepository {
 
   Future<Map<String, dynamic>> confirmExternal(
     String transferId,
-    String otp,
+    Map<String, String> proof,
   ) async {
     AppLogger.repo(
       'EXTERNAL_TRANSFER',
       'CONFIRM OTP start',
       {
         'transferId': AppLogger.mask(transferId),
-        'otpLength': otp.length,
+        'confirmationMethod': 'SMART_OTP',
       },
     );
     try {
       final response = await api.dio.post<Map<String, dynamic>>(
         '/external-transfers/$transferId/confirm',
-        data: {'otp': otp},
+        data: proof,
       );
       final data = Map<String, dynamic>.from(response.data?['data'] as Map);
       AppLogger.success(

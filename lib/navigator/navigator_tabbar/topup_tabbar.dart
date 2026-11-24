@@ -229,14 +229,104 @@ class _TopUpTabbarState extends State<TopUpTabbar>
 
   Future<void> _usePromotion(Promotion promotion) async {
     AppLogger.action('PROMOTION use pressed', {'brand': promotion.brand});
-    final opened = await PartnerLinkService.open(promotion.brand);
+    final benefit = promotion.demoBenefit;
+    if (benefit == null) {
+      await _openPartner(promotion.brand);
+      return;
+    }
+
+    const subtotal = 150000;
+    final discount = switch (benefit) {
+      DemoPromotionBenefit.percentage => subtotal * 10 ~/ 100,
+      DemoPromotionBenefit.fixedDiscount => 20000,
+      DemoPromotionBenefit.cashback => 0,
+    };
+    final cashback = benefit == DemoPromotionBenefit.cashback ? 10000 : 0;
+    final total = subtotal - discount;
+    final currency = NumberFormat.currency(
+      locale: 'vi_VN',
+      symbol: 'đ',
+      decimalDigits: 0,
+    );
+    var paid = false;
+    var openingPartner = false;
+    var partnerLinkFailed = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          scrollable: true,
+          title: Text(paid ? 'Thanh toán demo thành công' : 'Thanh toán demo'),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Đơn hàng mẫu tại ${promotion.brand}'),
+              const SizedBox(height: 12),
+              Text('Tạm tính: ${currency.format(subtotal)}'),
+              if (discount > 0) Text('Giảm giá: ${currency.format(discount)}'),
+              Text(
+                '${paid ? 'Đã thanh toán mô phỏng' : 'Tổng thanh toán'}: '
+                '${currency.format(total)}',
+              ),
+              if (cashback > 0)
+                Text('Hoàn tiền mô phỏng: ${currency.format(cashback)}'),
+              const SizedBox(height: 12),
+              const Text('Giao dịch mô phỏng. Số dư ví không thay đổi.'),
+              if (!paid)
+                TextButton.icon(
+                  onPressed: openingPartner
+                      ? null
+                      : () async {
+                          setDialogState(() {
+                            openingPartner = true;
+                            partnerLinkFailed = false;
+                          });
+                          var opened = false;
+                          try {
+                            opened = await PartnerLinkService.open(
+                              promotion.brand,
+                            );
+                          } finally {
+                            if (context.mounted) {
+                              setDialogState(() {
+                                openingPartner = false;
+                                partnerLinkFailed = !opened;
+                              });
+                            }
+                          }
+                        },
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('Xem trang đối tác'),
+                ),
+              if (!paid && partnerLinkFailed)
+                const Text('Chưa mở được trang đối tác. Bạn có thể thử lại.'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(paid ? 'Đóng' : 'Hủy'),
+            ),
+            if (!paid)
+              FilledButton(
+                onPressed: openingPartner
+                    ? null
+                    : () => setDialogState(() => paid = true),
+                child: const Text('Xác nhận mô phỏng'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openPartner(String brand) async {
+    final opened = await PartnerLinkService.open(brand);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Không thể mở trang ${promotion.brand}. Vui lòng thử lại.',
-          ),
-        ),
+        SnackBar(content: Text('Không thể mở trang $brand. Vui lòng thử lại.')),
       );
     }
   }

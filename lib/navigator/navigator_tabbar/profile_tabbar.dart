@@ -7,6 +7,7 @@ import 'package:app_do_an/navigator/navigator_screen/personal_info_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/welcome_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:app_do_an/core/storage/session_preferences.dart';
+import 'package:app_do_an/features/smart_otp/presentation/smart_otp_flow.dart';
 
 class ProfileTabbar extends StatefulWidget {
   const ProfileTabbar({super.key});
@@ -75,6 +76,15 @@ class _ProfileTabbarState extends State<ProfileTabbar> {
                   context,
                   MaterialPageRoute(builder: (_) => ChangePasswordScreen(email: email)),
                 ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.verified_user),
+                title: const Text('Quản lý Smart OTP'),
+                subtitle: const Text('Kích hoạt, kiểm tra hoặc thu hồi thiết bị'),
+                onTap: () async {
+                  await Navigator.push(context,MaterialPageRoute(builder: (_) => const SmartOtpManagementScreen()));
+                  if(mounted) setState(() {});
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.logout),

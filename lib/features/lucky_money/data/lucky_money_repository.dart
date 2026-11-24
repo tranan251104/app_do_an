@@ -30,7 +30,8 @@ class LuckyEnvelope {
   bool get canOpen => !isSender && status == 'WAITING_OPEN';
   String get statusLabel =>
       const {
-        'OTP_REQUIRED': 'Chờ xác nhận OTP',
+        'OTP_REQUIRED': 'Chờ OTP cũ',
+        'AUTH_REQUIRED': 'Chờ Smart OTP',
         'WAITING_OPEN': 'Chờ mở',
         'COMPLETED': 'Đã nhận',
         'EXPIRED': 'Hết hạn · Đã hoàn tiền',
@@ -61,8 +62,8 @@ class LuckyMoneyRepository {
 
   Future<LuckyEnvelope> get(String id) =>
       _request('/${Uri.encodeComponent(id)}', get: true);
-  Future<LuckyEnvelope> confirm(String id, String otp) =>
-      _request('/${Uri.encodeComponent(id)}/confirm', data: {'otp': otp});
+  Future<LuckyEnvelope> confirm(String id, Map<String, String> proof) =>
+      _request('/${Uri.encodeComponent(id)}/confirm', data: proof);
   Future<LuckyEnvelope> resend(String id) =>
       _request('/${Uri.encodeComponent(id)}/resend-otp');
   Future<LuckyEnvelope> open(String id) =>

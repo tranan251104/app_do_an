@@ -2,6 +2,7 @@ import 'package:app_do_an/core/app_services.dart';
 import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:app_do_an/core/network/api_exception.dart';
 import 'package:app_do_an/navigator/fourth_screen/otp_confirm_screen.dart';
+import 'package:app_do_an/features/smart_otp/presentation/smart_otp_flow.dart';
 import 'package:app_do_an/navigator/model/bank_catalog.dart';
 import 'package:app_do_an/navigator/service/notification_service.dart';
 import 'package:app_do_an/navigator/model/payment_account.dart';
@@ -156,32 +157,11 @@ class _TransferMoneyFormScreenState extends State<TransferMoneyFormScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final me = await AppServices.user.me();
-      final email = me['email']?.toString().trim() ?? '';
-      // Both internal transfers and simulated bank transfers now use the
-      // backend-selected OTP channel: EMAIL for email accounts, FCM_DEMO for
-      // phone-only accounts (when the demo channel is enabled on the backend).
-      // Do not reject phone-only users on the Flutter side.
-      if (email.isEmpty) {
-        // An active FCM device is required for demo phone OTP delivery.
-        // This step never bypasses server-side eligibility or OTP verification.
-        final deviceRegistered = await NotificationService.registerCurrentDevice(
-          source: _isExternalBank
-              ? 'external_transfer_phone_otp'
-              : 'internal_transfer_phone_otp',
-        );
-        if (!deviceRegistered) {
-          throw const ApiException(
-            code: 'OTP_FCM_DEVICE_REQUIRED',
-            message: 'Không thể đăng ký thiết bị để nhận OTP demo. '
-                'Hãy kiểm tra quyền thông báo và kết nối Firebase rồi thử lại.',
-          );
-        }
-      }
-
       if (_isExternalBank) {
+        if(!await SmartOtpFlow.ensureActivated(context) || !mounted) return;
         await _prepareExternal(amount);
       } else {
+        if(!await SmartOtpFlow.ensureActivated(context) || !mounted) return;
         await _prepareInternal(amount);
       }
     } on ApiException catch (e, stackTrace) {

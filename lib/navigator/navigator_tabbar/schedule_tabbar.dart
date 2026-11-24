@@ -853,6 +853,7 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
       case 'EXPIRED':
         return 'Đã hết hạn';
       case 'PENDING':
+      case 'AUTH_REQUIRED':
       case 'OTP_REQUIRED':
         return 'Đang xử lý';
       case 'FAILED':
@@ -870,6 +871,7 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
       case 'COMPLETED':
         return Colors.green.shade700;
       case 'PENDING':
+      case 'AUTH_REQUIRED':
       case 'OTP_REQUIRED':
         return Colors.orange.shade700;
       case 'WAITING_OPEN':

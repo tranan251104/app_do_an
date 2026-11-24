@@ -83,11 +83,11 @@ class WithdrawalRepository {
     }
   }
 
-  Future<Map<String, dynamic>> confirm(String transactionId, String otp) async {
+  Future<Map<String, dynamic>> confirm(String transactionId, Map<String, String> proof) async {
     try {
       final response = await api.dio.post<Map<String, dynamic>>(
         '/withdrawals/$transactionId/confirm',
-        data: {'otp': otp},
+        data: proof,
       );
       return Map<String, dynamic>.from(response.data?['data'] as Map);
     } catch (e) {

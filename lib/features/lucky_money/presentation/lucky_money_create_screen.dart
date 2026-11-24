@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_do_an/features/smart_otp/presentation/smart_otp_flow.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/app_services.dart';
@@ -113,14 +114,14 @@ class _LuckyMoneyCreateScreenState extends State<LuckyMoneyCreateScreen> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Phong bao có hạn 24 giờ sau khi xác nhận OTP. Nếu người nhận chưa mở, tiền sẽ tự hoàn về ví.',
+                'Phong bao có hạn 24 giờ sau khi xác nhận Smart OTP. Nếu người nhận chưa mở, tiền sẽ tự hoàn về ví.',
               ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => Navigator.pop(sheetContext, true),
-                  child: const Text('Tiếp tục xác nhận OTP'),
+                  child: const Text('Tiếp tục xác nhận Smart OTP'),
                 ),
               ),
             ],
@@ -145,6 +146,7 @@ class _LuckyMoneyCreateScreenState extends State<LuckyMoneyCreateScreen> {
     }
     _payload = payload;
     try {
+      if(!await SmartOtpFlow.ensureActivated(context) || !mounted) return;
       final envelope = await _repo.prepare(
         walletCode: wallet,
         amount: _value,

@@ -199,7 +199,7 @@ class _RechargeScreenState extends State<RechargeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nạp tiền'),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: Colors.purple,
         foregroundColor: Colors.white,
       ),
       body: Stack(
@@ -214,6 +214,7 @@ class _RechargeScreenState extends State<RechargeScreen> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: _controller,
+                  cursorColor: Colors.purple,
                   keyboardType: TextInputType.number,
                   onChanged: (value) => setState(() {
                     _amount = int.tryParse(value.replaceAll(',', '')) ?? 0;
@@ -223,13 +224,20 @@ class _RechargeScreenState extends State<RechargeScreen> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Colors.purple,
+                        width: 2,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.deepPurple.shade50,
+                    color: Colors.purple.shade50,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -244,7 +252,7 @@ class _RechargeScreenState extends State<RechargeScreen> {
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
-                          color: Colors.deepPurple,
+                          color: Colors.purple,
                         ),
                       ),
                     ],
@@ -264,7 +272,7 @@ class _RechargeScreenState extends State<RechargeScreen> {
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     Icons.account_balance_wallet_outlined,
-                    color: Colors.deepPurple,
+                    color: Colors.purple,
                   ),
                   title: Text('ANPAY Payment Gateway'),
                   subtitle: Text(
@@ -279,7 +287,7 @@ class _RechargeScreenState extends State<RechargeScreen> {
                         ? _handleRecharge
                         : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
+                      backgroundColor: Colors.purple,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -301,7 +309,9 @@ class _RechargeScreenState extends State<RechargeScreen> {
           if (_isLoading)
             Container(
               color: Colors.black45,
-              child: const Center(child: CircularProgressIndicator()),
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.purple),
+              ),
             ),
         ],
       ),
@@ -311,6 +321,7 @@ class _RechargeScreenState extends State<RechargeScreen> {
   Widget _quickButton(int value) {
     return OutlinedButton(
       onPressed: () => _setQuickAmount(value),
+      style: OutlinedButton.styleFrom(foregroundColor: Colors.purple),
       child: Text('${value ~/ 1000}k'),
     );
   }

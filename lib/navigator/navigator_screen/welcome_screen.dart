@@ -92,9 +92,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       if (!walletCreated) {
         // Recovery path: if registration was interrupted before the user chose
         // an AnPay account number, finish that setup after this valid login.
-        context.go('/wallet-number?finish=main');
+        context.go('/smart-otp/onboarding?next=wallet');
       } else {
-        context.go('/main?fromLogin=true');
+        context.go('/smart-otp/onboarding?next=main');
       }
     } on ApiException catch (e, stackTrace) {
       AppLogger.error(

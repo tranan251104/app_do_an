@@ -65,6 +65,10 @@ class AppLogger {
       'otp',
       'secret',
       'credential',
+      'signature',
+      'publickey',
+      'privatekey',
+      'smartotpcode',
     ];
     if (hiddenParts.any(normalizedKey.contains)) return '<redacted>';
 
@@ -83,6 +87,7 @@ class AppLogger {
     }
     final text = value?.toString();
     if (text != null) {
+      if (text.startsWith('ANPAY-SMARTOTP-V1')) return '<redacted-smart-otp-challenge>';
       final lower = text.toLowerCase();
       if (lower.startsWith('http://') ||
           lower.startsWith('https://') ||

@@ -77,6 +77,7 @@ class _TransactionDetailSheetState extends State<_TransactionDetailSheet> {
       case 'EXPIRED':
         return 'Đã hết hạn';
       case 'PENDING':
+      case 'AUTH_REQUIRED':
       case 'OTP_REQUIRED':
         return 'Đang xử lý';
       case 'FAILED':
@@ -94,6 +95,7 @@ class _TransactionDetailSheetState extends State<_TransactionDetailSheet> {
       case 'COMPLETED':
         return Colors.green;
       case 'PENDING':
+      case 'AUTH_REQUIRED':
       case 'OTP_REQUIRED':
         return Colors.orange;
       case 'WAITING_OPEN':

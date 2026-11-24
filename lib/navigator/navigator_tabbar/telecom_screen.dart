@@ -9,57 +9,58 @@ class TelecomScreen extends StatelessWidget {
   final int walletBalance;
   const TelecomScreen({super.key, required this.walletBalance});
 
+  static List<Map<String, dynamic>> servicesFor(int walletBalance) => [
+    {
+      "icon": Icons.phone_android,
+      "label": "Nạp điện thoại",
+      "screen": PhoneTopupScreen(walletBalance: walletBalance),
+    },
+    {
+      "icon": Icons.credit_card,
+      "label": "Mua thẻ cào",
+      "screen": CardTopupScreen(walletBalance: walletBalance),
+    },
+    {
+      "icon": Icons.network_wifi,
+      "label": "Đăng ký 3G/4G",
+      "screen": GenericPackageScreen(
+        title: "Đăng ký 3G/4G",
+        providers: ["Viettel", "MobiFone", "VinaPhone"],
+        packagesByProvider: AppData.dataPackagesByProvider,
+      ),
+    },
+    {
+      "icon": Icons.music_note,
+      "label": "Nhạc chờ",
+      "screen": GenericPackageScreen(
+        title: "Đăng ký Nhạc chờ",
+        providers: ["Viettel iMuzik", "MobiFone FunRing"],
+        packagesByProvider: AppData.musicPackagesByProvider,
+      ),
+    },
+    {
+      "icon": Icons.tv,
+      "label": "Internet/TV",
+      "screen": GenericPackageScreen(
+        title: "Internet/Truyền hình",
+        providers: ["FPT Play", "K+", "VieON"],
+        packagesByProvider: AppData.tvPackagesByProvider,
+      ),
+    },
+    {
+      "icon": Icons.receipt_long,
+      "label": "Chuyển vùng",
+      "screen": GenericPackageScreen(
+        title: "Chuyển vùng quốc tế",
+        providers: ["Viettel", "VinaPhone"],
+        packagesByProvider: AppData.roamingPackagesByProvider,
+      ),
+    },
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> services = [
-      {
-        "icon": Icons.phone_android,
-        "label": "Nạp điện thoại",
-        "screen": PhoneTopupScreen(walletBalance: walletBalance),
-      },
-      {
-        "icon": Icons.credit_card,
-        "label": "Mua thẻ cào",
-        "screen": CardTopupScreen(walletBalance: walletBalance),
-      },
-      {
-        "icon": Icons.network_wifi,
-        "label": "Đăng ký 3G/4G",
-        "screen": GenericPackageScreen(
-          title: "Đăng ký 3G/4G",
-          providers: ["Viettel", "MobiFone", "VinaPhone"],
-          packagesByProvider: AppData.dataPackagesByProvider,
-        ),
-      },
-      {
-        "icon": Icons.music_note,
-        "label": "Nhạc chờ",
-        "screen": GenericPackageScreen(
-          title: "Đăng ký Nhạc chờ",
-          providers: ["Viettel iMuzik", "MobiFone FunRing"],
-          packagesByProvider: AppData.musicPackagesByProvider,
-        ),
-      },
-      {
-        "icon": Icons.tv,
-        "label": "Internet/TV",
-        "screen": GenericPackageScreen(
-          title: "Internet/Truyền hình",
-          providers: ["FPT Play", "K+", "VieON"],
-          packagesByProvider: AppData.tvPackagesByProvider,
-        ),
-      },
-      {
-        "icon": Icons.receipt_long,
-        "label": "Chuyển vùng",
-        "screen": GenericPackageScreen(
-          title: "Chuyển vùng quốc tế",
-          providers: ["Viettel", "VinaPhone"],
-          packagesByProvider: AppData.roamingPackagesByProvider,
-        ),
-      },
-    ];
-
+    final services = servicesFor(walletBalance);
     return Scaffold(
       appBar: AppBar(
         title: const Text("Dịch vụ Viễn thông"),
@@ -79,7 +80,9 @@ class TelecomScreen extends StatelessWidget {
           final item = services[index];
           return InkWell(
             onTap: () {
-              AppLogger.action('TELECOM service selected', {'label': item['label']});
+              AppLogger.action('TELECOM service selected', {
+                'label': item['label'],
+              });
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => item["screen"]),

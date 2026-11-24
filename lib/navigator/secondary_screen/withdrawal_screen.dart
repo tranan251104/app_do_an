@@ -7,6 +7,7 @@ import 'package:app_do_an/navigator/navigator_screen/transaction_receipt_screen.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:app_do_an/features/smart_otp/presentation/smart_otp_flow.dart';
 
 String _money(num amount) => '${NumberFormat.decimalPattern('vi').format(amount)} đ';
 
@@ -153,6 +154,7 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
     setState(() => _busy = true);
     _pendingIdempotency ??= IdempotencyKey.generate();
     try {
+      if(!await SmartOtpFlow.ensureActivated(context) || !mounted) return;
       final result = await AppServices.withdrawal.prepare(
         linkedBankAccountId: _selected!,
         amount: amount,
@@ -416,22 +418,16 @@ class _WithdrawalOtpScreenState extends State<WithdrawalOtpScreen> {
   }
 
   Future<void> _confirm() async {
-    if (_busy || !RegExp(r'^\d{6}$').hasMatch(_otp.text.trim())) {
-      _message('Vui lòng nhập OTP gồm 6 chữ số.');
-      return;
-    }
-    setState(() => _busy = true);
+    if (_busy) return;
+    setState(() => _busy=true);
     try {
-      final result = await AppServices.withdrawal.confirm(_txId, _otp.text.trim());
-      if (!mounted) return;
-      _finish(result);
-    } on ApiException catch (e) {
-      _message(e.message);
-    } catch (_) {
-      _message('Không xác nhận được giao dịch. Dùng nút Kiểm tra trạng thái trước khi thử lại.');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+      final proof=await SmartOtpFlow.authorize(context,_txId);
+      if(!mounted || proof==null) return;
+      final result=await AppServices.withdrawal.confirm(_txId,proof);
+      if(mounted) _finish(result);
+    } on ApiException catch(e) { _message(e.message); }
+    catch(_) { _message('Không xác thực được giao dịch. Hãy kiểm tra trạng thái.'); }
+    finally { if(mounted) setState(() => _busy=false); }
   }
 
   Future<void> _resend() async {
@@ -441,7 +437,7 @@ class _WithdrawalOtpScreenState extends State<WithdrawalOtpScreen> {
       final result = await AppServices.withdrawal.resendOtp(_txId);
       if (!mounted) return;
       setState(() => _data = result);
-      _message('Đã yêu cầu gửi lại OTP.');
+      _message('Đã tạo lại yêu cầu Smart OTP.');
     } on ApiException catch (e) {
       _message(e.message);
     } finally {
@@ -493,38 +489,19 @@ class _WithdrawalOtpScreenState extends State<WithdrawalOtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isFcm = _data['otpChannel'] == 'FCM_DEMO';
-    final expires = DateTime.tryParse(_data['expiresAt']?.toString() ?? '')?.toLocal();
     return Scaffold(
-      appBar: AppBar(title: const Text('Xác nhận OTP rút tiền')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Icon(Icons.lock_outline, size: 64, color: Colors.deepPurple),
-          const SizedBox(height: 12),
-          Text('Rút ${_money((_data['amount'] as num?) ?? 0)}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          Text('${_data['bankName']} • ${_data['accountNumberMasked']}', textAlign: TextAlign.center),
-          const SizedBox(height: 14),
-          Text(isFcm
-              ? 'OTP demo được gửi qua thông báo FCM của ứng dụng AnPay, không phải SMS.'
-              : 'OTP đã được yêu cầu gửi đến email đăng ký của bạn.',
-              textAlign: TextAlign.center),
-          if (expires != null) Text('OTP hết hạn: ${DateFormat('HH:mm:ss').format(expires)}', textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _otp,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'Mã OTP (6 số)', border: OutlineInputBorder()),
-          ),
-          const SizedBox(height: 14),
+      appBar: AppBar(title: const Text('Smart OTP rút tiền')),
+      body: ListView(padding: const EdgeInsets.all(24), children: [
+        const Text('Nhập PIN Smart OTP để xác thực yêu cầu rút tiền mô phỏng.'),
+        const SizedBox(height: 14),
+        Text('Số tiền: ${_money((_data['amount'] as num?) ?? 0)}'),
+        Text('Ngân hàng: ${_data['bankName'] ?? ''}'),
+        Text('STK: ${_data['accountNumberMasked'] ?? ''}'),
+        const SizedBox(height: 24),
           FilledButton(onPressed: _busy ? null : _confirm,
               child: _busy ? const CircularProgressIndicator() : const Text('XÁC NHẬN RÚT TIỀN')),
           TextButton(onPressed: _resending ? null : _resend,
-              child: Text(_resending ? 'Đang gửi...' : 'Gửi lại OTP')),
+              child: Text(_resending ? 'Đang làm mới...' : 'Làm mới Smart OTP')),
           OutlinedButton.icon(onPressed: _busy ? null : _refresh,
               icon: const Icon(Icons.refresh), label: const Text('Kiểm tra trạng thái')),
           TextButton(onPressed: _busy ? null : _cancel,
@@ -533,7 +510,6 @@ class _WithdrawalOtpScreenState extends State<WithdrawalOtpScreen> {
           const Text('Giao dịch demo chỉ trừ tiền ảo trong Neon, không rút tiền thật về ngân hàng.',
               style: TextStyle(fontSize: 12, color: Colors.deepPurple), textAlign: TextAlign.center),
         ]),
-      ),
     );
   }
 }

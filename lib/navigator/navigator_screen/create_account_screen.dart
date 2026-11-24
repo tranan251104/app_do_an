@@ -108,7 +108,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       }
 
       if (!mounted) return;
-      context.go('/profile');
+      context.go('/smart-otp/onboarding?next=profile');
     } on ApiException catch (e) {
       _show(e.message);
     } catch (e) {

@@ -1,4 +1,6 @@
 import 'package:app_do_an/core/logging/app_logger.dart';
+import 'package:app_do_an/core/app_services.dart';
+import 'package:app_do_an/features/smart_otp/presentation/smart_otp_onboarding_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/create_account_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/goal_screen.dart';
 import 'package:app_do_an/navigator/navigator_screen/home_screen.dart';
@@ -23,8 +25,36 @@ GoRouter buildRouter(bool isFirstLaunch) {
   return GoRouter(
     observers: [observer],
     initialLocation: initialLocation,
+    // Guard entry points, not just the Login button. This also handles direct
+    // GoRouter navigation from push notifications or a stale in-app link.
+    redirect: (context, state) async {
+      final path = state.uri.path;
+      final protected = path == '/' || path == '/main' || path == '/tabbar' ||
+          path == '/transfer' || path == '/lucky-money' ||
+          path.startsWith('/lucky-money/');
+      if (!protected) return null;
+      if (!await AppServices.tokens.hasSession()) return '/welcome';
+      try {
+        final status = await AppServices.smartOtp.status();
+        final deviceId = status['deviceId']?.toString() ?? '';
+        if (status['active'] == true && deviceId.isNotEmpty &&
+            (await AppServices.smartOtpKeyStore.hasLocalDevice(deviceId) ||
+             await AppServices.smartOtpKeyStore.recoverConfirmedDevice(deviceId))) {
+          return null;
+        }
+      } catch (_) {
+        // Fail closed; the onboarding page can retry and show a useful error.
+      }
+      return '/smart-otp/onboarding?next=main';
+    },
     routes: [
       GoRoute(path: '/', builder: (context, state) => HomeScreen()),
+      GoRoute(
+        path: '/smart-otp/onboarding',
+        builder: (context, state) => SmartOtpOnboardingScreen(
+          next: state.uri.queryParameters['next'] ?? 'main',
+        ),
+      ),
       GoRoute(
         path: '/createprofile',
         builder: (context, state) => const CreateAccountScreen(),

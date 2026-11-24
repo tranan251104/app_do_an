@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:app_do_an/core/app_services.dart';
 import 'package:app_do_an/core/logging/app_logger.dart';
 import 'package:app_do_an/core/network/api_exception.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:app_do_an/navigator/navigator_widget/favorite_services.dart';
+import 'package:app_do_an/navigator/navigator_widget/service_search.dart';
 import 'package:app_do_an/navigator/navigator_screen/transaction_statistics_screen.dart';
 
 import 'package:app_do_an/navigator/navigator_screen/bill_screen.dart';
@@ -41,6 +44,9 @@ class HomeTabbar extends StatefulWidget {
 }
 
 class _HomeTabbarState extends State<HomeTabbar> {
+  static const _gridColumnCount = 4;
+  static const _gridTopPadding = 12.0;
+
   static final List<Map<String, dynamic>> _popularItems = [
     {"icon": Icons.phone_android, "label": "Viễn thông"},
     {"icon": Icons.local_activity, "label": "Xổ số, giải trí"},
@@ -74,6 +80,238 @@ class _HomeTabbarState extends State<HomeTabbar> {
     {"icon": Icons.video_library, "label": "VieON"},
     {"icon": Icons.apps, "label": "Xem thêm"},
   ];
+
+  static final _serviceItems = [
+    ..._popularItems.where((item) => item["label"] != "Xem tất cả"),
+    ..._catalogOnlyItems,
+  ];
+
+  static final _allPartnerItems = [
+    ..._partnerItems.where((item) => item["label"] != "Xem thêm"),
+    {"icon": Icons.shopping_cart, "label": "Shopee"},
+    {"icon": Icons.local_taxi, "label": "Grab"},
+    {"icon": Icons.motorcycle, "label": "Be"},
+    {"icon": Icons.airplanemode_active, "label": "Traveloka"},
+    {"icon": Icons.shopping_bag, "label": "Tiki"},
+    {"icon": Icons.movie_filter, "label": "Netflix"},
+    {"icon": Icons.local_hospital, "label": "Bệnh viện Vinmec"},
+    {"icon": Icons.flight, "label": "Vietnam Airlines"},
+    {"icon": Icons.local_cafe, "label": "The Coffee House"},
+  ];
+
+  static const _serviceCategories = {
+    "Mua sắm": (
+      subtitle:
+          "Các tiện ích mua sắm độc lập của AnPay. Những dịch vụ con của các nhóm cũ vẫn được giữ nguyên ở đúng nhóm của chúng.",
+      services: [
+        ServiceCategoryItem(
+          label: "Siêu thị & cửa hàng",
+          icon: Icons.storefront,
+          description:
+              "Thanh toán và sử dụng các tiện ích dành cho hệ thống siêu thị, cửa hàng bán lẻ liên kết.",
+        ),
+        ServiceCategoryItem(
+          label: "Thương mại điện tử",
+          icon: Icons.shopping_cart,
+          description:
+              "Các tiện ích thanh toán dành cho nền tảng mua sắm trực tuyến liên kết với AnPay.",
+        ),
+        ServiceCategoryItem(
+          label: "Voucher mua sắm",
+          icon: Icons.card_giftcard,
+          description:
+              "Khám phá và sử dụng voucher mua sắm từ các đối tác bán lẻ.",
+        ),
+        ServiceCategoryItem(
+          label: "Thanh toán tại quầy",
+          icon: Icons.point_of_sale,
+          description:
+              "Tiện ích thanh toán tại cửa hàng hoặc điểm bán thuộc hệ thống đối tác.",
+        ),
+      ],
+    ),
+    "Ăn uống": (
+      subtitle:
+          "Nhóm tiện ích dành riêng cho ăn uống, không lấy các dịch vụ con từ Viễn thông, Hóa đơn, Giải trí hay Du lịch ra ngoài.",
+      services: [
+        ServiceCategoryItem(
+          label: "Đặt món",
+          icon: Icons.delivery_dining,
+          description:
+              "Tìm và đặt món từ các nhà hàng, quán ăn và đối tác giao đồ ăn liên kết.",
+        ),
+        ServiceCategoryItem(
+          label: "Đặt bàn",
+          icon: Icons.table_restaurant,
+          description:
+              "Đặt bàn trước tại nhà hàng hoặc quán ăn thuộc hệ thống đối tác.",
+        ),
+        ServiceCategoryItem(
+          label: "Cà phê & đồ uống",
+          icon: Icons.local_cafe,
+          description:
+              "Tiện ích dành cho chuỗi cà phê, trà sữa và cửa hàng đồ uống.",
+        ),
+        ServiceCategoryItem(
+          label: "Ưu đãi ẩm thực",
+          icon: Icons.local_offer,
+          description:
+              "Tổng hợp chương trình ưu đãi và voucher dành riêng cho ăn uống.",
+        ),
+      ],
+    ),
+    "Giáo dục": (
+      subtitle:
+          "Các dịch vụ giáo dục bổ sung. Mục Học phí hiện có vẫn nằm trong Hóa đơn và không bị đưa ra đây.",
+      services: [
+        ServiceCategoryItem(
+          label: "Khóa học trực tuyến",
+          icon: Icons.laptop_chromebook,
+          description:
+              "Khám phá các khóa học trực tuyến từ nền tảng đào tạo liên kết.",
+        ),
+        ServiceCategoryItem(
+          label: "Sách & học liệu",
+          icon: Icons.menu_book,
+          description:
+              "Mua sách, giáo trình và học liệu số từ các nhà cung cấp đối tác.",
+        ),
+        ServiceCategoryItem(
+          label: "Luyện thi",
+          icon: Icons.quiz,
+          description:
+              "Các gói luyện thi, ngân hàng câu hỏi và dịch vụ ôn tập trực tuyến.",
+        ),
+        ServiceCategoryItem(
+          label: "Chứng chỉ kỹ năng",
+          icon: Icons.workspace_premium,
+          description:
+              "Đăng ký các chương trình đào tạo và chứng chỉ kỹ năng từ đối tác.",
+        ),
+      ],
+    ),
+    "Y tế": (
+      subtitle:
+          "Nhóm tiện ích chăm sóc sức khỏe và y tế độc lập, tách biệt với mục Mua bảo hiểm hiện có.",
+      services: [
+        ServiceCategoryItem(
+          label: "Đặt lịch khám",
+          icon: Icons.calendar_month,
+          description:
+              "Đặt lịch khám tại bệnh viện, phòng khám hoặc cơ sở y tế liên kết.",
+        ),
+        ServiceCategoryItem(
+          label: "Gói khám sức khỏe",
+          icon: Icons.medical_services,
+          description:
+              "Đăng ký các gói khám tổng quát hoặc chuyên khoa từ đối tác y tế.",
+        ),
+        ServiceCategoryItem(
+          label: "Xét nghiệm tại nhà",
+          icon: Icons.science,
+          description:
+              "Đặt dịch vụ lấy mẫu hoặc xét nghiệm tại nhà từ đơn vị liên kết.",
+        ),
+        ServiceCategoryItem(
+          label: "Nhà thuốc",
+          icon: Icons.local_pharmacy,
+          description:
+              "Tiện ích mua sắm và thanh toán tại các nhà thuốc đối tác.",
+        ),
+      ],
+    ),
+    "Giao thông": (
+      subtitle:
+          "Các tiện ích giao thông thường ngày. Vé máy bay, tàu, xe khách, taxi và thuê xe vẫn giữ nguyên trong Du lịch, đi lại.",
+      services: [
+        ServiceCategoryItem(
+          label: "Thu phí không dừng",
+          icon: Icons.toll,
+          description:
+              "Quản lý hoặc nạp tiền cho dịch vụ thu phí giao thông không dừng.",
+          action: ServiceCategoryAction.toll,
+        ),
+        ServiceCategoryItem(
+          label: "Phí đỗ xe",
+          icon: Icons.local_parking,
+          description:
+              "Thanh toán phí gửi xe tại các bãi đỗ và điểm đỗ liên kết.",
+        ),
+        ServiceCategoryItem(
+          label: "Cứu hộ phương tiện",
+          icon: Icons.car_repair,
+          description:
+              "Kết nối dịch vụ cứu hộ và hỗ trợ phương tiện trên đường.",
+        ),
+        ServiceCategoryItem(
+          label: "Sạc xe điện",
+          icon: Icons.ev_station,
+          description:
+              "Tìm điểm sạc và thanh toán dịch vụ sạc xe điện tại đối tác hỗ trợ.",
+        ),
+      ],
+    ),
+    "Quyên góp": (
+      subtitle:
+          "Các chương trình đóng góp cộng đồng được tổ chức thành một nhóm dịch vụ riêng.",
+      services: [
+        ServiceCategoryItem(
+          label: "Hỗ trợ trẻ em",
+          icon: Icons.child_care,
+          description:
+              "Đóng góp cho các chương trình hỗ trợ trẻ em có hoàn cảnh khó khăn.",
+        ),
+        ServiceCategoryItem(
+          label: "Cứu trợ thiên tai",
+          icon: Icons.warning,
+          description:
+              "Ủng hộ các chương trình cứu trợ và phục hồi sau thiên tai.",
+        ),
+        ServiceCategoryItem(
+          label: "Y tế cộng đồng",
+          icon: Icons.favorite_border,
+          description:
+              "Đóng góp cho chương trình y tế và chăm sóc sức khỏe cộng đồng.",
+        ),
+        ServiceCategoryItem(
+          label: "Bảo vệ môi trường",
+          icon: Icons.eco,
+          description:
+              "Ủng hộ các hoạt động bảo vệ môi trường và phát triển bền vững.",
+        ),
+      ],
+    ),
+    "Dịch vụ số": (
+      subtitle:
+          "Nhóm tiện ích công nghệ số mới, không trùng với Internet/TV hay các gói viễn thông hiện có.",
+      services: [
+        ServiceCategoryItem(
+          label: "Lưu trữ đám mây",
+          icon: Icons.cloud_queue,
+          description:
+              "Đăng ký và thanh toán các gói lưu trữ đám mây từ đối tác.",
+        ),
+        ServiceCategoryItem(
+          label: "Phần mềm",
+          icon: Icons.apps,
+          description:
+              "Mua hoặc gia hạn phần mềm và dịch vụ số dành cho cá nhân.",
+        ),
+        ServiceCategoryItem(
+          label: "Tên miền & Hosting",
+          icon: Icons.language,
+          description:
+              "Đăng ký hoặc gia hạn tên miền, hosting và dịch vụ website.",
+        ),
+        ServiceCategoryItem(
+          label: "Chữ ký số",
+          icon: Icons.edit,
+          description:
+              "Đăng ký và gia hạn dịch vụ chữ ký số từ nhà cung cấp liên kết.",
+        ),
+      ],
+    ),
+  };
 
   bool _isHidden = true;
   int _walletBalance = 0;
@@ -180,6 +418,11 @@ class _HomeTabbarState extends State<HomeTabbar> {
 
   @override
   Widget build(BuildContext context) {
+    final gridRowHeight = 66 + 2.5 * MediaQuery.textScalerOf(context).scale(12);
+    final gridRowCount =
+        (math.max(_popularItems.length, _partnerItems.length) / _gridColumnCount)
+            .ceil();
+
     return Scaffold(
       backgroundColor: Colors.white,
       floatingActionButton: FloatingActionButton(
@@ -352,7 +595,34 @@ class _HomeTabbarState extends State<HomeTabbar> {
               ),
             ),
 
-            const Divider(),
+            ServiceSearch(entries: _searchEntries()),
+
+            // 🔹 TabBar + Grid menu
+            DefaultTabController(
+              length: 2,
+              child: Column(
+                children: [
+                  const TabBar(
+                    labelColor: Colors.purple,
+                    unselectedLabelColor: Colors.black,
+                    indicatorColor: Colors.purple,
+                    tabs: [
+                      Tab(text: "Phổ biến"),
+                      Tab(text: "Ưu đãi Đối tác"),
+                    ],
+                  ),
+                  SizedBox(
+                    height: _gridTopPadding + gridRowHeight * gridRowCount,
+                    child: TabBarView(
+                      children: [
+                        _buildGrid(_popularItems, gridRowHeight),
+                        _buildGrid(_partnerItems, gridRowHeight),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
             FavoriteServices(
               items: [
@@ -372,35 +642,13 @@ class _HomeTabbarState extends State<HomeTabbar> {
                   title: const Text('Thống kê thu – chi'),
                   subtitle: const Text('Xem dòng tiền và giao dịch theo tháng'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TransactionStatisticsScreen())),
-                ),
-              ),
-            ),
-
-            // 🔹 TabBar + Grid menu
-            DefaultTabController(
-              length: 2,
-              child: Column(
-                children: [
-                  const TabBar(
-                    labelColor: Colors.purple,
-                    unselectedLabelColor: Colors.black,
-                    indicatorColor: Colors.purple,
-                    tabs: [
-                      Tab(text: "Phổ biến"),
-                      Tab(text: "Ưu đãi Đối tác"),
-                    ],
-                  ),
-                  SizedBox(
-                    height: 300,
-                    child: TabBarView(
-                      children: [
-                        _buildGrid(_popularItems),
-                        _buildGrid(_partnerItems),
-                      ],
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TransactionStatisticsScreen(),
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ],
@@ -434,6 +682,91 @@ class _HomeTabbarState extends State<HomeTabbar> {
         ],
       ),
     );
+  }
+
+  List<ServiceSearchEntry> _searchEntries() {
+    const childLabelsInCatalog = {'Đăng ký 3G/4G', 'Internet/TV'};
+    const financialCategories = {
+      FinancialServiceType.loan: 'Vay tiền mặt',
+      FinancialServiceType.insurance: 'Mua bảo hiểm',
+      FinancialServiceType.saving: 'Gửi tiết kiệm',
+    };
+    return [
+      for (final item in _serviceItems)
+        if (!childLabelsInCatalog.contains(item['label']))
+          ServiceSearchEntry(
+            label: item['label'] as String,
+            icon: item['icon'] as IconData,
+            keywords: item['label'] == 'Xổ số, giải trí' ? 'mua vé số' : '',
+            onOpen: () => _handleMenuItem(item),
+          ),
+      for (final item in _allPartnerItems)
+        ServiceSearchEntry(
+          label: item['label'] as String,
+          icon: item['icon'] as IconData,
+          category: 'Đối tác',
+          onOpen: () => _handleMenuItem(item),
+        ),
+      for (final item in TelecomScreen.servicesFor(_walletBalance))
+        ServiceSearchEntry(
+          label: item['label'] as String,
+          icon: item['icon'] as IconData,
+          category: 'Viễn thông',
+          keywords: switch (item['label']) {
+            'Đăng ký 3G/4G' => 'gói data Viettel MobiFone VinaPhone',
+            'Internet/TV' => 'truyền hình',
+            'Chuyển vùng' => 'chuyển vùng quốc tế roaming',
+            _ => '',
+          },
+          onOpen: () => _openSearchScreen(item['screen'] as Widget),
+        ),
+      for (final item in AppData.billServices)
+        ServiceSearchEntry(
+          label: item['label'] as String,
+          icon: item['icon'] as IconData,
+          category: 'Hóa đơn',
+          keywords: '${item['title']} ${(item['providers'] as List).join(' ')}',
+          onOpen: () => _openSearchScreen(BillScreen.serviceScreen(item)),
+        ),
+      for (final item in TravelScreen.services)
+        ServiceSearchEntry(
+          label: item['label'] as String,
+          icon: item['icon'] as IconData,
+          category: 'Du lịch, đi lại',
+          onOpen: () => _openSearchScreen(TravelScreen.serviceScreen(item)),
+        ),
+      for (final category in _serviceCategories.entries)
+        for (final service in category.value.services)
+          ServiceSearchEntry(
+            label: service.label,
+            icon: service.icon,
+            category: category.key,
+            onOpen: () => ServiceCategoryScreen.openService(
+              context,
+              category.key,
+              service,
+            ),
+          ),
+      for (final category in financialCategories.entries)
+        for (final product in FinancialProductCatalog.forType(category.key))
+          ServiceSearchEntry(
+            label: product.name,
+            icon: Icons.account_balance_wallet_outlined,
+            category: category.value,
+            keywords: product.provider,
+            onOpen: () => _openSearchScreen(
+              FinancialServiceScreen(
+                type: category.key,
+                initialProduct: product,
+              ),
+            ),
+          ),
+    ];
+  }
+
+  Future<void> _openSearchScreen(Widget screen) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    if (mounted) _loadBalance();
   }
 
   Future<void> _handleMenuItem(Map<String, dynamic> item) async {
@@ -477,6 +810,17 @@ class _HomeTabbarState extends State<HomeTabbar> {
           ),
         );
       }
+      return;
+    }
+
+    final category = _serviceCategories[label];
+    if (category != null) {
+      await _openLevelOneService(
+        title: label,
+        subtitle: category.subtitle,
+        services: category.services,
+      );
+      if (mounted) _loadBalance();
       return;
     }
 
@@ -544,203 +888,6 @@ class _HomeTabbarState extends State<HomeTabbar> {
           ),
         );
         break;
-      case "Mua sắm":
-        await _openLevelOneService(
-          title: "Mua sắm",
-          subtitle: "Các tiện ích mua sắm độc lập của AnPay. Những dịch vụ con của các nhóm cũ vẫn được giữ nguyên ở đúng nhóm của chúng.",
-          services: const [
-            ServiceCategoryItem(
-              label: "Siêu thị & cửa hàng",
-              icon: Icons.storefront,
-              description: "Thanh toán và sử dụng các tiện ích dành cho hệ thống siêu thị, cửa hàng bán lẻ liên kết.",
-            ),
-            ServiceCategoryItem(
-              label: "Thương mại điện tử",
-              icon: Icons.shopping_cart,
-              description: "Các tiện ích thanh toán dành cho nền tảng mua sắm trực tuyến liên kết với AnPay.",
-            ),
-            ServiceCategoryItem(
-              label: "Voucher mua sắm",
-              icon: Icons.card_giftcard,
-              description: "Khám phá và sử dụng voucher mua sắm từ các đối tác bán lẻ.",
-            ),
-            ServiceCategoryItem(
-              label: "Thanh toán tại quầy",
-              icon: Icons.point_of_sale,
-              description: "Tiện ích thanh toán tại cửa hàng hoặc điểm bán thuộc hệ thống đối tác.",
-            ),
-          ],
-        );
-        break;
-      case "Ăn uống":
-        await _openLevelOneService(
-          title: "Ăn uống",
-          subtitle: "Nhóm tiện ích dành riêng cho ăn uống, không lấy các dịch vụ con từ Viễn thông, Hóa đơn, Giải trí hay Du lịch ra ngoài.",
-          services: const [
-            ServiceCategoryItem(
-              label: "Đặt món",
-              icon: Icons.delivery_dining,
-              description: "Tìm và đặt món từ các nhà hàng, quán ăn và đối tác giao đồ ăn liên kết.",
-            ),
-            ServiceCategoryItem(
-              label: "Đặt bàn",
-              icon: Icons.table_restaurant,
-              description: "Đặt bàn trước tại nhà hàng hoặc quán ăn thuộc hệ thống đối tác.",
-            ),
-            ServiceCategoryItem(
-              label: "Cà phê & đồ uống",
-              icon: Icons.local_cafe,
-              description: "Tiện ích dành cho chuỗi cà phê, trà sữa và cửa hàng đồ uống.",
-            ),
-            ServiceCategoryItem(
-              label: "Ưu đãi ẩm thực",
-              icon: Icons.local_offer,
-              description: "Tổng hợp chương trình ưu đãi và voucher dành riêng cho ăn uống.",
-            ),
-          ],
-        );
-        break;
-      case "Giáo dục":
-        await _openLevelOneService(
-          title: "Giáo dục",
-          subtitle: "Các dịch vụ giáo dục bổ sung. Mục Học phí hiện có vẫn nằm trong Hóa đơn và không bị đưa ra đây.",
-          services: const [
-            ServiceCategoryItem(
-              label: "Khóa học trực tuyến",
-              icon: Icons.laptop_chromebook,
-              description: "Khám phá các khóa học trực tuyến từ nền tảng đào tạo liên kết.",
-            ),
-            ServiceCategoryItem(
-              label: "Sách & học liệu",
-              icon: Icons.menu_book,
-              description: "Mua sách, giáo trình và học liệu số từ các nhà cung cấp đối tác.",
-            ),
-            ServiceCategoryItem(
-              label: "Luyện thi",
-              icon: Icons.quiz,
-              description: "Các gói luyện thi, ngân hàng câu hỏi và dịch vụ ôn tập trực tuyến.",
-            ),
-            ServiceCategoryItem(
-              label: "Chứng chỉ kỹ năng",
-              icon: Icons.workspace_premium,
-              description: "Đăng ký các chương trình đào tạo và chứng chỉ kỹ năng từ đối tác.",
-            ),
-          ],
-        );
-        break;
-      case "Y tế":
-        await _openLevelOneService(
-          title: "Y tế",
-          subtitle: "Nhóm tiện ích chăm sóc sức khỏe và y tế độc lập, tách biệt với mục Mua bảo hiểm hiện có.",
-          services: const [
-            ServiceCategoryItem(
-              label: "Đặt lịch khám",
-              icon: Icons.calendar_month,
-              description: "Đặt lịch khám tại bệnh viện, phòng khám hoặc cơ sở y tế liên kết.",
-            ),
-            ServiceCategoryItem(
-              label: "Gói khám sức khỏe",
-              icon: Icons.medical_services,
-              description: "Đăng ký các gói khám tổng quát hoặc chuyên khoa từ đối tác y tế.",
-            ),
-            ServiceCategoryItem(
-              label: "Xét nghiệm tại nhà",
-              icon: Icons.science,
-              description: "Đặt dịch vụ lấy mẫu hoặc xét nghiệm tại nhà từ đơn vị liên kết.",
-            ),
-            ServiceCategoryItem(
-              label: "Nhà thuốc",
-              icon: Icons.local_pharmacy,
-              description: "Tiện ích mua sắm và thanh toán tại các nhà thuốc đối tác.",
-            ),
-          ],
-        );
-        break;
-      case "Giao thông":
-        await _openLevelOneService(
-          title: "Giao thông",
-          subtitle: "Các tiện ích giao thông thường ngày. Vé máy bay, tàu, xe khách, taxi và thuê xe vẫn giữ nguyên trong Du lịch, đi lại.",
-          services: const [
-            ServiceCategoryItem(
-              label: "Thu phí không dừng",
-              icon: Icons.toll,
-              description: "Quản lý hoặc nạp tiền cho dịch vụ thu phí giao thông không dừng.",
-              action: ServiceCategoryAction.toll,
-            ),
-            ServiceCategoryItem(
-              label: "Phí đỗ xe",
-              icon: Icons.local_parking,
-              description: "Thanh toán phí gửi xe tại các bãi đỗ và điểm đỗ liên kết.",
-            ),
-            ServiceCategoryItem(
-              label: "Cứu hộ phương tiện",
-              icon: Icons.car_repair,
-              description: "Kết nối dịch vụ cứu hộ và hỗ trợ phương tiện trên đường.",
-            ),
-            ServiceCategoryItem(
-              label: "Sạc xe điện",
-              icon: Icons.ev_station,
-              description: "Tìm điểm sạc và thanh toán dịch vụ sạc xe điện tại đối tác hỗ trợ.",
-            ),
-          ],
-        );
-        break;
-      case "Quyên góp":
-        await _openLevelOneService(
-          title: "Quyên góp",
-          subtitle: "Các chương trình đóng góp cộng đồng được tổ chức thành một nhóm dịch vụ riêng.",
-          services: const [
-            ServiceCategoryItem(
-              label: "Hỗ trợ trẻ em",
-              icon: Icons.child_care,
-              description: "Đóng góp cho các chương trình hỗ trợ trẻ em có hoàn cảnh khó khăn.",
-            ),
-            ServiceCategoryItem(
-              label: "Cứu trợ thiên tai",
-              icon: Icons.warning,
-              description: "Ủng hộ các chương trình cứu trợ và phục hồi sau thiên tai.",
-            ),
-            ServiceCategoryItem(
-              label: "Y tế cộng đồng",
-              icon: Icons.favorite_border,
-              description: "Đóng góp cho chương trình y tế và chăm sóc sức khỏe cộng đồng.",
-            ),
-            ServiceCategoryItem(
-              label: "Bảo vệ môi trường",
-              icon: Icons.eco,
-              description: "Ủng hộ các hoạt động bảo vệ môi trường và phát triển bền vững.",
-            ),
-          ],
-        );
-        break;
-      case "Dịch vụ số":
-        await _openLevelOneService(
-          title: "Dịch vụ số",
-          subtitle: "Nhóm tiện ích công nghệ số mới, không trùng với Internet/TV hay các gói viễn thông hiện có.",
-          services: const [
-            ServiceCategoryItem(
-              label: "Lưu trữ đám mây",
-              icon: Icons.cloud_queue,
-              description: "Đăng ký và thanh toán các gói lưu trữ đám mây từ đối tác.",
-            ),
-            ServiceCategoryItem(
-              label: "Phần mềm",
-              icon: Icons.apps,
-              description: "Mua hoặc gia hạn phần mềm và dịch vụ số dành cho cá nhân.",
-            ),
-            ServiceCategoryItem(
-              label: "Tên miền & Hosting",
-              icon: Icons.language,
-              description: "Đăng ký hoặc gia hạn tên miền, hosting và dịch vụ website.",
-            ),
-            ServiceCategoryItem(
-              label: "Chữ ký số",
-              icon: Icons.edit,
-              description: "Đăng ký và gia hạn dịch vụ chữ ký số từ nhà cung cấp liên kết.",
-            ),
-          ],
-        );
-        break;
       case "Xem tất cả":
         await _showServiceCatalog(partnersOnly: false);
         break;
@@ -783,22 +930,6 @@ class _HomeTabbarState extends State<HomeTabbar> {
     AppLogger.action('HOME service catalog opened', {
       'partnersOnly': partnersOnly,
     });
-    final serviceItems = [
-      ..._popularItems.where((item) => item["label"] != "Xem tất cả"),
-      ..._catalogOnlyItems,
-    ];
-    final partnerItems = [
-      ..._partnerItems.where((item) => item["label"] != "Xem thêm"),
-      {"icon": Icons.shopping_cart, "label": "Shopee"},
-      {"icon": Icons.local_taxi, "label": "Grab"},
-      {"icon": Icons.motorcycle, "label": "Be"},
-      {"icon": Icons.airplanemode_active, "label": "Traveloka"},
-      {"icon": Icons.shopping_bag, "label": "Tiki"},
-      {"icon": Icons.movie_filter, "label": "Netflix"},
-      {"icon": Icons.local_hospital, "label": "Bệnh viện Vinmec"},
-      {"icon": Icons.flight, "label": "Vietnam Airlines"},
-      {"icon": Icons.local_cafe, "label": "The Coffee House"},
-    ];
 
     await showModalBottomSheet<void>(
       context: context,
@@ -854,13 +985,13 @@ class _HomeTabbarState extends State<HomeTabbar> {
                       _buildCatalogSection(
                         sheetContext,
                         title: "Đối tác",
-                        items: partnerItems,
+                        items: _allPartnerItems,
                       )
                     else
                       _buildCatalogSection(
                         sheetContext,
                         title: "Dịch vụ AnPay",
-                        items: serviceItems,
+                        items: _serviceItems,
                       ),
                   ],
                 ),
@@ -932,15 +1063,15 @@ class _HomeTabbarState extends State<HomeTabbar> {
     );
   }
 
-  Widget _buildGrid(List<Map<String, dynamic>> items) {
+  Widget _buildGrid(List<Map<String, dynamic>> items, double rowHeight) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, _gridTopPadding, 16, 0),
       itemCount: items.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        childAspectRatio: 0.8,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: _gridColumnCount,
+        mainAxisExtent: rowHeight,
       ),
       itemBuilder: (context, index) {
         final item = items[index];

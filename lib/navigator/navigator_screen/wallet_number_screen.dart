@@ -176,7 +176,7 @@ class _WalletNumberScreenState extends State<WalletNumberScreen> {
       if (!mounted) return;
       context.go('/welcome');
     } else {
-      context.go('/main?fromLogin=true');
+      context.go('/smart-otp/onboarding?next=main');
     }
   }
 

@@ -1,3 +1,13 @@
+enum DemoPromotionBenefit {
+  percentage('giảm theo %'),
+  fixedDiscount('giảm số tiền cố định'),
+  cashback('hoàn tiền');
+
+  final String label;
+
+  const DemoPromotionBenefit(this.label);
+}
+
 class Promotion {
   final String id;
   final String iconKey;
@@ -7,6 +17,7 @@ class Promotion {
   final String category;
   final DateTime createdAt;
   final DateTime validUntil;
+  final DemoPromotionBenefit? demoBenefit;
 
   const Promotion({
     required this.id,
@@ -17,6 +28,7 @@ class Promotion {
     required this.category,
     required this.createdAt,
     required this.validUntil,
+    this.demoBenefit,
   });
 
   bool isActiveAt(DateTime time) => !validUntil.isBefore(time);

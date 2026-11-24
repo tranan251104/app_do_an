@@ -6,6 +6,7 @@ import '../../../core/app_services.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/lucky_money_repository.dart';
 import 'lucky_money_widgets.dart';
+import '../../smart_otp/presentation/smart_otp_flow.dart';
 
 class LuckyMoneyDetailScreen extends StatefulWidget {
   final String envelopeId;
@@ -59,56 +60,29 @@ class _LuckyMoneyDetailScreenState extends State<LuckyMoneyDetailScreen> {
       ? error.message
       : 'Không thể kết nối dịch vụ lì xì. Vui lòng thử lại.';
 
+  Future<LuckyEnvelope> _confirmWithSmartOtp() async {
+    final proof=await SmartOtpFlow.authorize(context,widget.envelopeId);
+    if(proof==null) throw StateError('Đã hủy xác thực Smart OTP.');
+    return _repo.confirm(widget.envelopeId,proof);
+  }
+
   Future<void> _act(String action) async {
-    if (_busy) return;
-    if (action == 'confirm' && !RegExp(r'^\d{6}$').hasMatch(_otp.text)) return;
-    if (action == 'resend' &&
-        _resendAfter != null &&
-        DateTime.now().isBefore(_resendAfter!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng chờ 60 giây trước khi gửi lại OTP.'),
-        ),
-      );
-      return;
-    }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
+    if(_busy) return;
+    setState(() { _busy=true; _error=null; });
     try {
-      final value = switch (action) {
-        'confirm' => await _repo.confirm(widget.envelopeId, _otp.text),
+      final value=switch(action) {
+        'confirm' => await _confirmWithSmartOtp(),
         'resend' => await _repo.resend(widget.envelopeId),
         _ => await _repo.open(widget.envelopeId),
       };
-      if (!mounted) return;
-      setState(() => _envelope = value);
-      if (action == 'resend') {
-        _resendAfter = DateTime.now().add(const Duration(seconds: 60));
-        _otp.clear();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã yêu cầu gửi lại OTP qua email.')),
-        );
-      }
-    } catch (error) {
-      if (mounted) setState(() => _error = _message(error));
-      // A lost response may follow a committed send/open. Read the authoritative
-      // state before allowing the user to retry the same operation.
+      if(mounted) setState(() => _envelope=value);
+    } catch(error) {
+      if(mounted) setState(() => _error=_message(error));
       try {
-        final current = await _repo.get(widget.envelopeId);
-        if (mounted) {
-          setState(() {
-            if (current.status != _envelope?.status) _error = null;
-            _envelope = current;
-          });
-        }
-      } catch (_) {
-        /* Keep the original actionable error. */
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+        final state=await _repo.get(widget.envelopeId);
+        if(mounted) setState(() => _envelope=state);
+      } catch(_) { /* preserve original error */ }
+    } finally { if(mounted) setState(() => _busy=false); }
   }
 
   @override
@@ -199,36 +173,18 @@ class _LuckyMoneyDetailScreenState extends State<LuckyMoneyDetailScreen> {
                         textAlign: TextAlign.center,
                       ),
                     ],
-                    if (e.status == 'OTP_REQUIRED' && e.isSender) ...[
+                    if (e.status == 'AUTH_REQUIRED' && e.isSender) ...[
                       const SizedBox(height: 24),
-                      const Text(
-                        'Nhập OTP được gửi qua email để gửi phong bao. Tiền chỉ được giữ sau khi xác nhận thành công.',
-                      ),
+                      const Text('Xác nhận phong bao bằng PIN Smart OTP trên thiết bị.'),
                       if (e.otpExpiresAt != null)
-                        Text('OTP hết hạn: ${luckyDate(e.otpExpiresAt!)}'),
+                        Text('Xác thực hết hạn: ${luckyDate(e.otpExpiresAt!)}'),
                       const SizedBox(height: 16),
-                      TextField(
-                        controller: _otp,
-                        enabled: !_busy,
-                        keyboardType: TextInputType.number,
-                        maxLength: 6,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: const InputDecoration(
-                          labelText: 'Mã OTP',
-                          border: OutlineInputBorder(),
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
                       TextButton(
                         onPressed: _busy ? null : () => _act('resend'),
-                        child: const Text('Gửi lại OTP'),
+                        child: const Text('Làm mới xác thực'),
                       ),
                       FilledButton(
-                        onPressed: !_busy && _otp.text.length == 6
-                            ? () => _act('confirm')
-                            : null,
+                        onPressed: !_busy ? () => _act('confirm') : null,
                         child: Text(
                           _busy ? 'Đang xác nhận…' : 'Xác nhận gửi lì xì',
                         ),
