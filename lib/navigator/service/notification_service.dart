@@ -398,7 +398,8 @@ class NotificationService {
       // Demo OTP must not be copied into SharedPreferences notification
       // history. The OS may display its push banner for this demo flow.
       recordInHistory: message.data['type'] != 'DEMO_PHONE_OTP' &&
-          message.data['type'] != 'TRANSFER_OTP_DEMO',
+          message.data['type'] != 'TRANSFER_OTP_DEMO' &&
+          message.data['type'] != 'WITHDRAWAL_OTP_DEMO',
       actionData: message.data,
     );
   }

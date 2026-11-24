@@ -357,6 +357,8 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
                                     (value) => setSheetState(() => draftType = value)),
                                 _choiceChip('Chuyển ngân hàng', 'EXTERNAL_BANK_TRANSFER', draftType,
                                     (value) => setSheetState(() => draftType = value)),
+                                _choiceChip('Rút tiền', 'WITHDRAWAL', draftType,
+                                    (value) => setSheetState(() => draftType = value)),
                                 _choiceChip('Nạp tiền', 'TOP_UP', draftType,
                                     (value) => setSheetState(() => draftType = value)),
                               ],
@@ -837,6 +839,7 @@ class ScheduleTabbarState extends State<ScheduleTabbar> {
       return direction == 'IN' ? 'Nhận tiền' : 'Chuyển tiền';
     }
     if (type == 'EXTERNAL_BANK_TRANSFER') return 'Chuyển ngân hàng';
+    if (type == 'WITHDRAWAL') return 'Rút tiền về ngân hàng';
     if (type == 'TOP_UP') return 'Nạp tiền';
     return 'Giao dịch AnPay';
   }

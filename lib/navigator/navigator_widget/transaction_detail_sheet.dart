@@ -113,6 +113,7 @@ class _TransactionDetailSheetState extends State<_TransactionDetailSheet> {
       return direction == 'IN' ? 'Nhận tiền AnPay' : 'Chuyển tiền AnPay';
     }
     if (type == 'EXTERNAL_BANK_TRANSFER') return 'Chuyển tiền ngân hàng';
+    if (type == 'WITHDRAWAL') return 'Rút tiền về ngân hàng';
     if (type == 'TOP_UP') return 'Nạp tiền';
     return 'Giao dịch AnPay';
   }
@@ -250,7 +251,7 @@ class _TransactionDetailSheetState extends State<_TransactionDetailSheet> {
                       _row('Ngân hàng', bankName),
                     if (counterpartyAccount != null && counterpartyAccount.isNotEmpty)
                       _row(
-                        type == 'EXTERNAL_BANK_TRANSFER'
+                        (type == 'EXTERNAL_BANK_TRANSFER' || type == 'WITHDRAWAL')
                             ? 'Số tài khoản'
                             : 'Số tài khoản AnPay',
                         counterpartyAccount,
